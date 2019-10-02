@@ -7,8 +7,8 @@ fois vous souhaitez voir l'avancé, il vous suffit de télécharger le projet vi
 de l'ouvrir dans votre IDE (il est recommandé d'utiliser Intellij Idea).
 
 ## Auteurs
-![Baptiste BUSNOULT](https://github.com/Babs84)
-![Romain COLONNA D'ISTRIA](https://github.com/romain-colonna-distria)
-![Joachim NEULET]()
-![Alexandre PUTZU](https://github.com/bigby347)
-![Quentin WOOLYS](https://github.com/quentinfougereau)
+- ![Baptiste BUSNOULT](https://github.com/Babs84)
+- ![Romain COLONNA D'ISTRIA](https://github.com/romain-colonna-distria)
+- ![Joachim NEULET]()
+- ![Alexandre PUTZU](https://github.com/bigby347)
+- ![Quentin WOOLYS](https://github.com/quentinfougereau)
