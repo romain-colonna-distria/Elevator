@@ -9,6 +9,6 @@ de l'ouvrir dans votre IDE (il est recommandé d'utiliser Intellij Idea).
 ## Auteurs
 - ![Baptiste BUSNOULT](https://github.com/Babs84)
 - ![Romain COLONNA D'ISTRIA](https://github.com/romain-colonna-distria)
-- ![Joachim NEULET]()
+- ![Joachim NEULET](https://github.com/joachimneulet)
 - ![Alexandre PUTZU](https://github.com/bigby347)
 - ![Quentin WOOLYS](https://github.com/quentinfougereau)
