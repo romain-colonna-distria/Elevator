@@ -2,6 +2,8 @@ package fr.univ_amu.command;
 
 import fr.univ_amu.object.Elevator;
 import fr.univ_amu.control.ElevatorControl;
+import javafx.beans.property.SimpleIntegerProperty;
+import javafx.beans.property.SimpleStringProperty;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -54,6 +56,7 @@ public class CommandEngine{
                     e1.printStackTrace();
                 }
             }
+            ++currentFloor;
         }
 
         public void down(){
@@ -65,17 +68,16 @@ public class CommandEngine{
                     e1.printStackTrace();
                 }
             }
+            --currentFloor;
         }
 
         @Override
         public void run() {
             if(direction.equals(Direction.UP)) {
                 up();
-                ++currentFloor;
             }
             else {
                 down();
-                --currentFloor;
             }
 
 

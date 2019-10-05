@@ -37,7 +37,6 @@ public class ExternalControlPanel extends AnchorPane {
         setHeight(upButton.getHeight() + downButton.getHeight());
 
         setStyle("-fx-border-color: #000000; -fx-background-color: #ffffff;");
-
     }
 
     private void loadFXML(){

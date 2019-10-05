@@ -41,12 +41,7 @@ public class ElevatorShaft extends AnchorPane {
         this.getChildren().add(view);
     }
     private void initElevator(){
-        double x = 108.0;
-        double y = 529.0;
-        double width = 90.0;
-        double heigth = 110.0;
-        ImageView elevatorFont = new ImageView(new Image("image/peopleInElevator.png"));
-        elevator = new Elevator(x, y, width, heigth, elevatorFont);
+        elevator = new Elevator();
         this.getChildren().add(elevator);
     }
     private void initLabels(short nbFloor){
@@ -69,4 +64,13 @@ public class ElevatorShaft extends AnchorPane {
         }
         this.getChildren().addAll(externalControlPanels);
     }
+
+    public Elevator getElevator() {
+        return elevator;
+    }
+
+    public ElevatorControl getElevatorControl() {
+        return elevatorControl;
+    }
+
 }

@@ -1,5 +1,11 @@
 package fr.univ_amu.object;
 
+import fr.univ_amu.command.Direction;
+import fr.univ_amu.control.ElevatorControl;
+import javafx.beans.property.SimpleIntegerProperty;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.control.Button;
@@ -14,10 +20,20 @@ public class InternalControlPanel extends AnchorPane {
     @FXML
     private Label currentFloorLabel;
 
+    private ElevatorControl elevatorControl;
+
+    private EventHandler<ActionEvent> goToEvent = new EventHandler<ActionEvent>() {
+        @Override
+        public void handle(ActionEvent event) {
+            elevatorControl.goTo(Integer.parseInt(((Button) event.getSource()).getText()));
+        }
+    };
+
     private List<Button> buttonList = new ArrayList<>();
 
 
-    public InternalControlPanel(short nbFloor){
+    public InternalControlPanel(short nbFloor, ElevatorControl elevatorControl){
+        this.elevatorControl = elevatorControl;
         loadFXML();
         initButtons(nbFloor);
     }
@@ -41,8 +57,13 @@ public class InternalControlPanel extends AnchorPane {
             tmp.setPrefWidth(70);
             tmp.setLayoutX(80);
             tmp.setLayoutY(120 + (70 * j--));
+            tmp.setOnAction(goToEvent);
             this.getChildren().add(tmp);
             buttonList.add(tmp);
         }
+    }
+
+    public void bindCurrentFloorLabelTo(SimpleStringProperty simpleStringProperty) {
+        currentFloorLabel.textProperty().bindBidirectional(simpleStringProperty);
     }
 }
