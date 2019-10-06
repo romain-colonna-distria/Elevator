@@ -6,7 +6,6 @@ import javafx.scene.layout.AnchorPane;
 
 
 public class Elevator extends AnchorPane {
-    private InternalControlPanel internalControlPanel;
 
     public Elevator(){
         double x = 108.0;
@@ -26,9 +25,5 @@ public class Elevator extends AnchorPane {
         elevatorFont.setLayoutY(1.0);
 
         this.getChildren().add(elevatorFont);
-    }
-
-    public void setInternalControlPanel(InternalControlPanel internalControlPanel) {
-        this.internalControlPanel = internalControlPanel;
     }
 }

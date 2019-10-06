@@ -2,6 +2,7 @@ package fr.univ_amu.object;
 
 import fr.univ_amu.command.Direction;
 import fr.univ_amu.control.ElevatorControl;
+
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.fxml.FXMLLoader;
@@ -26,6 +27,7 @@ public class ExternalControlPanel extends AnchorPane {
             elevatorControl.call(floor, direction);
         }
     };
+
 
     public ExternalControlPanel(short floor, ElevatorControl elevatorControl){
         this.elevatorControl = elevatorControl;

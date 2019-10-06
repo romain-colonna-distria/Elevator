@@ -1,9 +1,8 @@
 package fr.univ_amu.object;
 
-import fr.univ_amu.command.Direction;
 import fr.univ_amu.control.ElevatorControl;
-import javafx.beans.property.SimpleIntegerProperty;
-import javafx.beans.property.SimpleStringProperty;
+
+import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.fxml.FXML;
@@ -25,7 +24,15 @@ public class InternalControlPanel extends AnchorPane {
     private EventHandler<ActionEvent> goToEvent = new EventHandler<ActionEvent>() {
         @Override
         public void handle(ActionEvent event) {
+            System.out.println("panneau interne: " + elevatorControl.getCommandEngineRoot().getCurrentFloor() + " --> " + ((Button) event.getSource()).getText());
             elevatorControl.goTo(Integer.parseInt(((Button) event.getSource()).getText()));
+        }
+    };
+
+    private EventHandler<ActionEvent> emergencyEvent = new EventHandler<ActionEvent>() {
+        @Override
+        public void handle(ActionEvent event) {
+            elevatorControl.emergencyStop();
         }
     };
 
@@ -52,18 +59,27 @@ public class InternalControlPanel extends AnchorPane {
     private void initButtons(short nbFloor){
         short j = (short)(nbFloor - 1); //sert a inverser la place des boutons sur le panneau (au lieux de 0 à 4 --> 4 à 0)
         for(short i = 0; i < nbFloor; ++i){
-            Button tmp = new Button(String.valueOf(i));
-            tmp.setPrefHeight(40);
-            tmp.setPrefWidth(70);
-            tmp.setLayoutX(80);
-            tmp.setLayoutY(120 + (70 * j--));
-            tmp.setOnAction(goToEvent);
-            this.getChildren().add(tmp);
-            buttonList.add(tmp);
+            Button floor = new Button(String.valueOf(i));
+            floor.setPrefHeight(40);
+            floor.setPrefWidth(70);
+            floor.setLayoutX(80);
+            floor.setLayoutY(120 + (70 * j--));
+            floor.setOnAction(goToEvent);
+            this.getChildren().add(floor);
+            buttonList.add(floor);
         }
+
+        Button emergency = new Button("Emergency stop");
+        emergency.setLayoutX(32.0);
+        emergency.setLayoutY(465.0);
+        emergency.setPrefWidth(165.0);
+        emergency.setPrefHeight(40.0);
+        emergency.setOnAction(emergencyEvent);
+        this.getChildren().add(emergency);
+
     }
 
-    public void bindCurrentFloorLabelTo(SimpleStringProperty simpleStringProperty) {
-        currentFloorLabel.textProperty().bindBidirectional(simpleStringProperty);
+    public void setCurrentFloorLabelText(String currentFloor) {
+        Platform.runLater(() -> currentFloorLabel.setText(currentFloor));
     }
 }

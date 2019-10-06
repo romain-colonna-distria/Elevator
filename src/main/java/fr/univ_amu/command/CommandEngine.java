@@ -1,86 +1,101 @@
 package fr.univ_amu.command;
 
 import fr.univ_amu.object.Elevator;
-import fr.univ_amu.control.ElevatorControl;
-import javafx.beans.property.SimpleIntegerProperty;
-import javafx.beans.property.SimpleStringProperty;
+import fr.univ_amu.object.ElevatorShaft;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static fr.univ_amu.Constant.FLOOR_SIZE;
 
 public class CommandEngine{
     private ExecutorService enginePool = Executors.newSingleThreadExecutor();
-    private ElevatorControl elevatorController;
-    private final int FLOOR_SIZE = 129;
+    private ElevatorShaft elevatorShaft;
     private Elevator elevator;
-    private int currentFloor = 0;
+    private AtomicInteger currentFloor = new AtomicInteger(0);
+    private AtomicBoolean canKeepMoving = new AtomicBoolean(true);
 
-    public CommandEngine(Elevator elevator){
+    private static volatile Object object = new Object();
+
+    public CommandEngine(Elevator elevator, ElevatorShaft elevatorShaft){
         this.elevator = elevator;
-        this.elevatorController = new ElevatorControl(this);
+        this.elevatorShaft = elevatorShaft;
     }
 
-    public synchronized void goUp(){
-        Thread upThread = new Thread(new Engine_Runnable(Direction.UP));
+    public void goUp(short nbFloor){
+        Thread upThread = new Thread(new Engine_Runnable(Direction.UP, nbFloor));
         enginePool.execute(upThread);
+        //Platform.runLater(new Engine_Runnable(Direction.UP, nbFloor));
     }
 
-    public synchronized void goDown(){
-        Thread downThread = new Thread(new Engine_Runnable(Direction.DOWN));
+    public void goDown(short nbFloor){
+        Thread downThread = new Thread(new Engine_Runnable(Direction.DOWN, nbFloor));
         enginePool.execute(downThread);
+        //Platform.runLater(new Engine_Runnable(Direction.DOWN, nbFloor));
     }
 
-    public void stopNextFloor(){}
+    public void stopNextFloor(){
 
-    public void emergencyStop(){}
+    }
 
-    public void cancelEmergencyStop(){}
+    public void emergencyStop(){
+        System.out.println();
+        canKeepMoving.set(!canKeepMoving.get());
+        synchronized (object) {
+            if(canKeepMoving.get()) object.notifyAll();
+        }
+    }
+
+    public void updateCurrentFloor(short newCurrentFloor){
+        currentFloor.set(newCurrentFloor);
+        elevatorShaft.getElevatorControl().notifyFloorChange();
+    }
 
     public int getCurrentFloor() {
-        return currentFloor;
+        return currentFloor.get();
     }
 
+
     private class Engine_Runnable implements Runnable {
+        private short nbFloor;
         private Direction direction;
 
-        public Engine_Runnable(Direction direction){
+        public Engine_Runnable(Direction direction, short nbFloor){
             this.direction = direction;
+            this.nbFloor = nbFloor;
         }
 
-        public void up(){
-            for(int i = 0; i < FLOOR_SIZE; ++i){
-                elevator.setLayoutY(elevator.getLayoutY() - 1);
-                try {
-                    Thread.sleep(10);
-                } catch (InterruptedException e1) {
-                    e1.printStackTrace();
+        private void move() throws InterruptedException {
+            short j = (short) (direction.equals(Direction.UP) ? 1 : -1);
+            boolean stopNextFloor = false;
+            for (int i = 0; i < FLOOR_SIZE * nbFloor; ++i) {
+                while (!canKeepMoving.get()) {
+                    //nbFloor = 1;
+                    synchronized (object) {
+                        System.out.println("stop");
+                        stopNextFloor = true;
+                        object.wait();
+                    }
                 }
-            }
-            ++currentFloor;
-        }
+                elevator.setLayoutY(elevator.getLayoutY() - j);
+                Thread.sleep(10);
 
-        public void down(){
-            for(int i = 0; i < FLOOR_SIZE; ++i){
-                elevator.setLayoutY(elevator.getLayoutY() + 1);
-                try {
-                    Thread.sleep(10);
-                } catch (InterruptedException e1) {
-                    e1.printStackTrace();
+                if (i != 0 && i % (FLOOR_SIZE - 1) == 0) {
+                    if(stopNextFloor) break;
+                    updateCurrentFloor((short) (currentFloor.get() + j));
                 }
             }
-            --currentFloor;
         }
 
         @Override
         public void run() {
-            if(direction.equals(Direction.UP)) {
-                up();
+            try {
+                move();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
-            else {
-                down();
-            }
-
-
         }
     }
 }
