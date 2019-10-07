@@ -1,6 +1,6 @@
-package fr.univ_amu.object;
+package fr.univ_amu.ihm;
 
-import fr.univ_amu.command.CommandEngine;
+import fr.univ_amu.engine.CommandEngine;
 import fr.univ_amu.control.ElevatorControl;
 
 import javafx.scene.control.Label;
@@ -20,7 +20,7 @@ public class ElevatorShaft extends AnchorPane {
         initElevator();
         initLabels(nbFloor);
 
-        CommandEngine commandEngine = new CommandEngine(elevator, this);
+        CommandEngine commandEngine = new CommandEngine(this);
         elevatorControl = new ElevatorControl(commandEngine);
 
         setWidth(400.0);

@@ -1,4 +1,4 @@
-package fr.univ_amu.object;
+package fr.univ_amu.ihm;
 
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;

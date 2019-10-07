@@ -1,6 +1,6 @@
-package fr.univ_amu.object;
+package fr.univ_amu.ihm;
 
-import fr.univ_amu.command.Direction;
+import fr.univ_amu.utils.Direction;
 import fr.univ_amu.control.ElevatorControl;
 
 import javafx.event.ActionEvent;
@@ -16,6 +16,7 @@ import java.io.IOException;
 
 public class ExternalControlPanel extends AnchorPane {
     private ElevatorControl elevatorControl;
+
     private short floor;
     private Button upButton;
     private Button downButton;
@@ -24,7 +25,8 @@ public class ExternalControlPanel extends AnchorPane {
         @Override
         public void handle(ActionEvent event) {
             Direction direction = ((Button)event.getSource()).getId().equals("up") ? Direction.UP : Direction.DOWN;
-            elevatorControl.call(floor, direction);
+            System.out.println(floor);
+            elevatorControl.request(floor, direction);
         }
     };
 

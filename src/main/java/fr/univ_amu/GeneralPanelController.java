@@ -1,9 +1,10 @@
 package fr.univ_amu;
 
-import fr.univ_amu.object.ExternalControlPanel;
-import fr.univ_amu.object.InternalControlPanel;
-import fr.univ_amu.object.ElevatorShaft;
+import fr.univ_amu.ihm.ExternalControlPanel;
+import fr.univ_amu.ihm.InternalControlPanel;
+import fr.univ_amu.ihm.ElevatorShaft;
 
+import fr.univ_amu.utils.Constant;
 import javafx.fxml.FXML;
 import javafx.scene.layout.AnchorPane;
 

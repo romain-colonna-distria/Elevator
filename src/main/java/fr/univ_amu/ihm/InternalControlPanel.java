@@ -1,7 +1,8 @@
-package fr.univ_amu.object;
+package fr.univ_amu.ihm;
 
 import fr.univ_amu.control.ElevatorControl;
 
+import fr.univ_amu.utils.Direction;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
@@ -16,19 +17,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class InternalControlPanel extends AnchorPane {
-    @FXML
-    private Label currentFloorLabel;
-
     private ElevatorControl elevatorControl;
 
+    @FXML
+    private Label currentFloorLabel;
+    private List<Button> buttonList = new ArrayList<>();
     private EventHandler<ActionEvent> goToEvent = new EventHandler<ActionEvent>() {
         @Override
         public void handle(ActionEvent event) {
             System.out.println("panneau interne: " + elevatorControl.getCommandEngineRoot().getCurrentFloor() + " --> " + ((Button) event.getSource()).getText());
-            elevatorControl.goTo(Integer.parseInt(((Button) event.getSource()).getText()));
+            elevatorControl.request((short) Integer.parseInt(((Button) event.getSource()).getText()), Direction.STAY);
         }
     };
-
     private EventHandler<ActionEvent> emergencyEvent = new EventHandler<ActionEvent>() {
         @Override
         public void handle(ActionEvent event) {
@@ -36,14 +36,15 @@ public class InternalControlPanel extends AnchorPane {
         }
     };
 
-    private List<Button> buttonList = new ArrayList<>();
-
 
     public InternalControlPanel(short nbFloor, ElevatorControl elevatorControl){
         this.elevatorControl = elevatorControl;
         loadFXML();
         initButtons(nbFloor);
     }
+
+
+
 
     private void loadFXML(){
         FXMLLoader fxmlLoader = new FXMLLoader(getClass().getClassLoader().getResource("view/internal_control_panel_view.fxml"));
@@ -69,7 +70,7 @@ public class InternalControlPanel extends AnchorPane {
             buttonList.add(floor);
         }
 
-        Button emergency = new Button("Emergency stop");
+        Button emergency = new Button("Emergency emergencyStop");
         emergency.setLayoutX(32.0);
         emergency.setLayoutY(465.0);
         emergency.setPrefWidth(165.0);
