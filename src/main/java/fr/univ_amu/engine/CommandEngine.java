@@ -2,6 +2,7 @@ package fr.univ_amu.engine;
 
 import fr.univ_amu.ihm.ElevatorShaft;
 import fr.univ_amu.utils.Direction;
+import javafx.application.Platform;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -42,13 +43,15 @@ public class CommandEngine{
         direction = Direction.STAY;
     }
     public void emergencyStop(){
-        direction = Direction.STAY;
         canMove.set(false);
     }
 
 
     public void cancelEmergencyStop(){
         canMove.set(true);
+        synchronized (lock) {
+            lock.notifyAll();
+        }
     }
 
     public void stopNextFloor(){
@@ -69,6 +72,14 @@ public class CommandEngine{
         return direction;
     }
 
+    public ElevatorShaft getElevatorShaft() {
+        return elevatorShaft;
+    }
+
+    public AtomicBoolean getCanMove() {
+        return canMove;
+    }
+
     private class Engine_Runnable implements Runnable {
         private void move() throws InterruptedException {
             int i = 0;
@@ -85,20 +96,21 @@ public class CommandEngine{
                 short j = (short) (direction.equals(Direction.UP) ? 1 : -1);
 
                 while (!canMove.get()) {
-                    //nbFloor = 1;
                     synchronized (lock) {
-                        stopNextFloor = true;
+                        //stopNextFloor = true;
+                        direction = Direction.STAY;
                         System.out.println("wait2");
                         lock.wait();
                         System.out.println("fin wait2");
                     }
                 }
-                elevatorShaft.getElevator().setLayoutY(elevatorShaft.getElevator().getLayoutY() - j);
-                ++i; //i = i * j
+                Platform.runLater(() -> elevatorShaft.getElevator().setLayoutY(elevatorShaft.getElevator().getLayoutY() - j));
+                ++i;//i += j;
                 Thread.sleep(10);
 
                 if (i % (FLOOR_SIZE - 1) == 0) {
                     updateCurrentFloor((short) (currentFloor.get() + j));
+                    i = currentFloor.get() * FLOOR_SIZE;
                     if (stopNextFloor) {
                         direction = Direction.STAY;
                         stopNextFloor = false;

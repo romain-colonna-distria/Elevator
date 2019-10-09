@@ -1,4 +1,4 @@
-package fr.univ_amu;
+package fr.univ_amu.utils;
 
 public class Constant {
     public static final short FLOOR_MAX = 4;

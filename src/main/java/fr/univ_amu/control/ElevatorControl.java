@@ -4,10 +4,9 @@ import fr.univ_amu.engine.CommandEngine;
 import fr.univ_amu.utils.Direction;
 import fr.univ_amu.ihm.ExternalControlPanel;
 import fr.univ_amu.ihm.InternalControlPanel;
+import javafx.application.Platform;
 
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static fr.univ_amu.utils.Constant.*;
@@ -19,21 +18,30 @@ public class ElevatorControl {
     private InternalControlPanel internalControlPanel;
     private AtomicBoolean isFloorChange = new AtomicBoolean(false);
 
-    private List<Short> floorsWaitingLine = new ArrayList<>();
+    private Queue<Short> upWaitingLine;
+    private Queue<Short> downWaitingLine;
     private volatile Object lock = new Object();
+
 
     public ElevatorControl(CommandEngine commandEngine){
         this.commandEngineRoot = commandEngine;
+
+        Comparator<Short> upComparator = (o1, o2) -> o1 - o2;
+        upWaitingLine = new PriorityQueue<>(upComparator);
+        Comparator<Short> downComparator = (o1, o2) -> o2 - o1;
+        downWaitingLine = new PriorityQueue<>(downComparator);
+
         Thread control = new Thread(new Control_Runnable());
         control.start();
     }
 
 
     public void request(short targetFloor, Direction directionAfterReachingTargetFloor) {
-        System.out.println("request: " + floorsWaitingLine);
         short currentFloor = (short)commandEngineRoot.getCurrentFloor();
 
-        if(floorsWaitingLine.contains(targetFloor)) return; //si étage déja présent dans la file d'attente des étages on ne fais rien
+        if(targetFloor == currentFloor) return;
+        if(upWaitingLine.contains(targetFloor)) return; //si étage déja présent dans la file d'attente des étages on ne fais rien
+        if(downWaitingLine.contains(targetFloor)) return;
 
         /* vérif quand on est dans la cabine */
         if(currentFloor == FLOOR_MAX && targetFloor > currentFloor) return; //si requete pour monter plus haut que max on fais rien
@@ -47,57 +55,38 @@ public class ElevatorControl {
     }
 
 
+    @SuppressWarnings("Duplicates")    //TODO: mieux faire algo
     private void orderRequest(short targetFloor, Direction directionAfterReachingTargetFloor){
         System.out.print("order request: ");
-        synchronized (lock) {//TODO: mieux faire algo
-            if(floorsWaitingLine.isEmpty()) {
-                floorsWaitingLine.add(targetFloor);
+        synchronized (lock) {
+            if(commandEngineRoot.getCurrentFloor() < targetFloor){
+                System.out.println("ajouté up: " + targetFloor);
+                upWaitingLine.add(targetFloor);
+                System.out.println("---up---" + upWaitingLine);
+            } else if(commandEngineRoot.getCurrentFloor() > targetFloor){
+                System.out.println("ajouté down: " + targetFloor);
+                downWaitingLine.add(targetFloor);
+                System.out.println("---do---" + downWaitingLine);
             } else {
-                if(commandEngineRoot.getDirection().equals(Direction.UP)) {
-                    if (targetFloor < floorsWaitingLine.get(0)) {
-                        floorsWaitingLine.add(0, targetFloor);
-                    } else if (floorsWaitingLine.size() >= 2) {
-                        for (short i = 1; i < floorsWaitingLine.size(); ++i) {
-                            if (targetFloor < floorsWaitingLine.get(i)) {
-                                floorsWaitingLine.add(i, targetFloor);
-                            }
-                        }
-                    } else {
-                        floorsWaitingLine.add(targetFloor);
-                    }
-                } else if(commandEngineRoot.getDirection().equals(Direction.DOWN)){
-                    if (targetFloor > floorsWaitingLine.get(0)) {
-                        floorsWaitingLine.add(0, targetFloor);
-                    } else if (floorsWaitingLine.size() >= 2) {
-                        for (short i = 1; i < floorsWaitingLine.size(); ++i) {
-                            if (targetFloor > floorsWaitingLine.get(i)) {
-                                floorsWaitingLine.add(i, targetFloor);
-                            }
-                        }
-                    } else {
-                        floorsWaitingLine.add(targetFloor);
-                    }
-                } else {
-                    System.out.println("pas tout compris");
-                }
+                System.out.println("??????????????????????");
             }
 
-            System.out.println(floorsWaitingLine);
+            Platform.runLater(() -> commandEngineRoot.getElevatorShaft().getRoot().updateWaitingLine(getCompleteWaitingLine()));
             lock.notifyAll();
         }
     }
-
 
     public void emergencyStop(){
-        commandEngineRoot.emergencyStop();
-    }
+        if(commandEngineRoot.getCanMove().get()) {
+            upWaitingLine.clear();
+            downWaitingLine.clear();
 
-    public void notifyFloorChange(){
-        isFloorChange.set(true);
-        internalControlPanel.setCurrentFloorLabelText(String.valueOf(commandEngineRoot.getCurrentFloor()));
-        synchronized (lock){
-            lock.notifyAll();
+            commandEngineRoot.emergencyStop();
+
+            Platform.runLater(() -> commandEngineRoot.getElevatorShaft().getRoot().updateWaitingLine(getCompleteWaitingLine()));
         }
+        else
+            commandEngineRoot.cancelEmergencyStop();
     }
 
     public CommandEngine getCommandEngineRoot() {
@@ -110,6 +99,31 @@ public class ElevatorControl {
         this.internalControlPanel = internalControlPanel;
     }
 
+    public List<Short> getCompleteWaitingLine(){
+        List<Short> floorsWaitingLine = new ArrayList<>(upWaitingLine);
+        floorsWaitingLine.addAll(downWaitingLine);
+        return floorsWaitingLine;
+    }
+
+    public Queue<Short> getActualWaitingLine(){
+        if(upWaitingLine.isEmpty() && downWaitingLine.isEmpty())
+            return new PriorityQueue<>();
+        else {
+            if(upWaitingLine.isEmpty()) return downWaitingLine;
+            else return upWaitingLine;
+        }
+    }
+
+
+    public void notifyFloorChange(){
+        isFloorChange.set(true);
+        internalControlPanel.setCurrentFloorLabelText(String.valueOf(commandEngineRoot.getCurrentFloor()));
+        synchronized (lock){
+            lock.notifyAll();
+        }
+    }
+
+
     private class Control_Runnable implements Runnable {
         @Override
         public void run() {
@@ -117,30 +131,35 @@ public class ElevatorControl {
             synchronized (lock) {
                 while (true) {
                     try {
-                        while (floorsWaitingLine.isEmpty()) {
+                        while (getCompleteWaitingLine().isEmpty()) {
+                            System.out.println("dodo1");
                             lock.wait();
+                            System.out.println("-dodo1");
                         }
 
                         if(isFloorChange.get()){
                             isFloorChange.set(false);
                             currentFloor = (short)commandEngineRoot.getCurrentFloor();
 
-                            if(currentFloor == floorsWaitingLine.get(0)){
-                                floorsWaitingLine.remove(0);
+                            if(getActualWaitingLine().peek() != null && currentFloor == getActualWaitingLine().peek()){
+                                getActualWaitingLine().poll();
                                 commandEngineRoot.stop();
+                                Platform.runLater(() -> commandEngineRoot.getElevatorShaft().getRoot().updateWaitingLine(getCompleteWaitingLine()));
                                 Thread.sleep(1000);
                                 continue;
                             }
                         }
 
-                        short targetFloor = floorsWaitingLine.get(0);
+                        short targetFloor = getActualWaitingLine().peek();
                         try {
                             if (targetFloor > currentFloor) {
                                 commandEngineRoot.goUp();
-                                lock.wait();
+                                while (!isFloorChange.get())
+                                    lock.wait();
                             } else if (targetFloor < currentFloor) {
                                 commandEngineRoot.goDown();
-                                lock.wait();
+                                while (!isFloorChange.get())
+                                    lock.wait();
                             }
                         } catch (InterruptedException e) {
                             e.printStackTrace();
@@ -153,3 +172,133 @@ public class ElevatorControl {
         }
     }
 }
+
+
+/*
+
+            if(commandEngineRoot.getDirection().equals(Direction.UP)){
+                if(directionAfterReachingTargetFloor.equals(Direction.UP)){
+                    if(commandEngineRoot.getCurrentFloor() > targetFloor){
+                        downWaitingLine.add(targetFloor);
+                    } else if(commandEngineRoot.getCurrentFloor() < targetFloor) {
+                        upWaitingLine.add(targetFloor);
+                    } else {
+                        //je sais pas
+                    }
+                } else if(directionAfterReachingTargetFloor.equals(Direction.DOWN)) {
+                    if(commandEngineRoot.getCurrentFloor() > targetFloor){
+                        downWaitingLine.add(targetFloor);
+                    } else if(commandEngineRoot.getCurrentFloor() < targetFloor) {
+                        downWaitingLine.add(targetFloor);
+                    } else {
+                        downWaitingLine.add(targetFloor);
+                    }
+                } else {
+                    if(commandEngineRoot.getCurrentFloor() > targetFloor){
+                        downWaitingLine.add(targetFloor);
+                    } else if(commandEngineRoot.getCurrentFloor() < targetFloor) {
+                        upWaitingLine.add(targetFloor);
+                    } else {
+                        //étage raté car si égale déja passé
+                        downWaitingLine.add(targetFloor);
+                    }
+                }
+            } else if(commandEngineRoot.getDirection().equals(Direction.DOWN)) {
+                if(directionAfterReachingTargetFloor.equals(Direction.UP)){
+                    if(commandEngineRoot.getCurrentFloor() > targetFloor){
+                        //je sais pas
+                    } else if(commandEngineRoot.getCurrentFloor() < targetFloor) {
+                        upWaitingLine.add(targetFloor);
+                    } else {
+                        upWaitingLine.add(targetFloor);
+                    }
+                } else if(directionAfterReachingTargetFloor.equals(Direction.DOWN)) {
+                    if(commandEngineRoot.getCurrentFloor() > targetFloor){
+
+                    } else if(commandEngineRoot.getCurrentFloor() < targetFloor) {
+                        downWaitingLine.add(targetFloor);
+                    } else {
+                        upWaitingLine.add(targetFloor);
+                    }
+                } else {
+                    if(commandEngineRoot.getCurrentFloor() > targetFloor){
+                        downWaitingLine.add(targetFloor);
+                    } else if(commandEngineRoot.getCurrentFloor() < targetFloor) {
+                        upWaitingLine.add(targetFloor);
+                    } else {
+                        upWaitingLine.add(targetFloor);
+                    }
+                }
+            } else {
+                if(directionAfterReachingTargetFloor.equals(Direction.UP)){
+                    if(commandEngineRoot.getCurrentFloor() > targetFloor){
+                        downWaitingLine.add(targetFloor);
+                    } else if(commandEngineRoot.getCurrentFloor() < targetFloor) {
+                        upWaitingLine.add(targetFloor);
+                    } else {
+                        System.out.println("Déjà présent à l'étage");
+                    }
+                } else if(directionAfterReachingTargetFloor.equals(Direction.DOWN)) {
+                    if(commandEngineRoot.getCurrentFloor() > targetFloor){
+                        downWaitingLine.add(targetFloor);
+                    } else if(commandEngineRoot.getCurrentFloor() < targetFloor) {
+                        upWaitingLine.add(targetFloor);
+                    } else {
+                        System.out.println("Déjà présent à l'étage");
+                    }
+                } else {
+                    if(commandEngineRoot.getCurrentFloor() > targetFloor){
+                        downWaitingLine.add(targetFloor);
+                    } else if(commandEngineRoot.getCurrentFloor() < targetFloor) {
+                        upWaitingLine.add(targetFloor);
+                    } else {
+                        System.out.println("Déjà présent à l'étage");
+                    }
+                }
+            }
+
+
+ */
+
+            /*
+            if(floorsWaitingLine.isEmpty()) {
+                floorsWaitingLine.add(targetFloor);
+            } else {
+                if(commandEngineRoot.getDirection().equals(Direction.UP)) {
+                    if (targetFloor < floorsWaitingLine.get(0)) { //dois etre sup a l'etage actuel
+                        floorsWaitingLine.add(0, targetFloor);
+                    } else if (floorsWaitingLine.size() >= 2) {
+                        boolean isAdd = false;
+                        for (short i = 1; i < floorsWaitingLine.size(); ++i) {
+                            if (targetFloor < floorsWaitingLine.get(i)) {
+                                isAdd = true;
+                                floorsWaitingLine.add(i, targetFloor);
+                            }
+                        }
+                        if (!isAdd) floorsWaitingLine.add(targetFloor);
+                    } else {
+                        floorsWaitingLine.add(targetFloor);
+                    }
+                } else if(commandEngineRoot.getDirection().equals(Direction.DOWN)){
+                    if (targetFloor > floorsWaitingLine.get(0)) {
+                        floorsWaitingLine.add(0, targetFloor);
+                    } else if (floorsWaitingLine.size() >= 2) {
+                        boolean isAdd = false;
+                        for (short i = 1; i < floorsWaitingLine.size(); ++i) {
+                            if (targetFloor > floorsWaitingLine.get(i)) {
+                                isAdd = true;
+                                floorsWaitingLine.add(i, targetFloor);
+                                break;
+                            }
+                        }
+                        if (!isAdd) floorsWaitingLine.add(targetFloor);
+                    } else {
+                        floorsWaitingLine.add(targetFloor);
+                    }
+                } else {
+                    System.out.println("pas tout compris");
+                    floorsWaitingLine.add(targetFloor);
+                }
+            }
+            //floorsWaitingLine.add(targetFloor);
+            */

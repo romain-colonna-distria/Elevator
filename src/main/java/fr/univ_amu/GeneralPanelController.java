@@ -6,6 +6,7 @@ import fr.univ_amu.ihm.ElevatorShaft;
 
 import fr.univ_amu.utils.Constant;
 import javafx.fxml.FXML;
+import javafx.scene.control.Label;
 import javafx.scene.layout.AnchorPane;
 
 import java.util.ArrayList;
@@ -17,10 +18,13 @@ public class GeneralPanelController {
     @FXML
     private AnchorPane rootAnchorPane;
 
+    @FXML
+    private Label floorWaintingLineLabel;
+
 
     public void init() {
         /* *********** Cage d'ascenseur *********** */
-        ElevatorShaft elevatorShaft = new ElevatorShaft(Constant.NB_FLOORS);
+        ElevatorShaft elevatorShaft = new ElevatorShaft(Constant.NB_FLOORS, this);
         elevatorShaft.setLayoutX(30.0);
         elevatorShaft.setLayoutY(25.0);
         rootAnchorPane.getChildren().add(elevatorShaft);
@@ -47,5 +51,9 @@ public class GeneralPanelController {
         elevatorShaft.getElevatorControl().setInternalControlPanel(internalControlPanel);
         rootAnchorPane.getChildren().add(internalControlPanel);
         /* ***************************************** */
+    }
+
+    public void updateWaitingLine(List<Short> waitingLineList){
+        floorWaintingLineLabel.setText(waitingLineList.toString());
     }
 }

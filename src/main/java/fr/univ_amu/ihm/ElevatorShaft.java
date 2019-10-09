@@ -1,8 +1,10 @@
 package fr.univ_amu.ihm;
 
+import fr.univ_amu.GeneralPanelController;
 import fr.univ_amu.engine.CommandEngine;
 import fr.univ_amu.control.ElevatorControl;
 
+import javafx.application.Platform;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -11,11 +13,13 @@ import javafx.scene.layout.AnchorPane;
 import java.util.List;
 
 public class ElevatorShaft extends AnchorPane {
+    private GeneralPanelController root;
     private ElevatorControl elevatorControl;
     private Elevator elevator;
 
 
-    public ElevatorShaft(short nbFloor){
+    public ElevatorShaft(short nbFloor, GeneralPanelController root){
+        this.root = root;
         initView();
         initElevator();
         initLabels(nbFloor);
@@ -27,6 +31,7 @@ public class ElevatorShaft extends AnchorPane {
         setHeight(650.0);
         setStyle("-fx-border-color: #000000; -fx-background-color: #ffffff;");
     }
+
 
     private void initView(){
         ImageView view = new ImageView(new Image("image/elevatorShaft.png"));
@@ -48,6 +53,10 @@ public class ElevatorShaft extends AnchorPane {
             tmp.setLayoutY(70 + (125 * j--));
             this.getChildren().add(tmp);
         }
+    }
+
+    public GeneralPanelController getRoot() {
+        return root;
     }
 
     public Elevator getElevator() {
