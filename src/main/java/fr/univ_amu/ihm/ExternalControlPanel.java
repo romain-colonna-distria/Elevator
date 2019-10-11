@@ -1,7 +1,7 @@
 package fr.univ_amu.ihm;
 
+import fr.univ_amu.observer.PanelObserver;
 import fr.univ_amu.utils.Direction;
-import fr.univ_amu.control.ElevatorControl;
 
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
@@ -12,34 +12,27 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.AnchorPane;
 
-import java.awt.*;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 public class ExternalControlPanel extends AnchorPane {
-    //private ElevatorControl elevatorControl;
     private List<PanelObserver> observers = new ArrayList<>();
 
     private short floor;
-    private Direction direction;
     private Button upButton;
     private Button downButton;
 
     private EventHandler<ActionEvent> callEvent = new EventHandler<ActionEvent>() {
         @Override
         public void handle(ActionEvent event) {
-            direction = ((Button)event.getSource()).getId().equals("up") ? Direction.UP : Direction.DOWN;
-            System.out.println(floor);
-            notifyObservers();
-            //elevatorControl.request(floor, direction);
+            Direction direction = ((Button)event.getSource()).getId().equals("up") ? Direction.UP : Direction.DOWN;
+            notifyObservers(floor, direction);
         }
     };
 
 
-    public ExternalControlPanel(short floor, ElevatorControl elevatorControl) {
-        //this.elevatorControl = elevatorControl;
-        addObserver(elevatorControl);
+    public ExternalControlPanel(short floor) {
         this.floor = floor;
         loadFXML();
         initButtons();
@@ -78,25 +71,13 @@ public class ExternalControlPanel extends AnchorPane {
         downButton.setLayoutY(27.0);
     }
 
-    public void addObserver(PanelObserver observer) {
-        this.observers.add(observer);
-    }
-
-    public void removeObserver(PanelObserver observer) {
-        this.observers.remove(observer);
-    }
-
-    public void notifyObservers() {
+    public void notifyObservers(short floor, Direction direction) {
         for (PanelObserver observer : this.observers) {
-            observer.updateExternalControlPanel(this);
+            observer.updateRequest(floor, direction);
         }
     }
 
-    public short getFloor() {
-        return floor;
-    }
-
-    public Direction getDirection() {
-        return direction;
+    public void addObserver(PanelObserver observer) {
+        this.observers.add(observer);
     }
 }

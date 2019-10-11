@@ -1,7 +1,7 @@
 package fr.univ_amu.ihm;
 
-import fr.univ_amu.control.ElevatorControl;
 
+import fr.univ_amu.observer.PanelObserver;
 import fr.univ_amu.utils.Direction;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
@@ -17,42 +17,23 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class InternalControlPanel extends AnchorPane {
-    //private ElevatorControl elevatorControl;
     private List<PanelObserver> observers = new ArrayList<>();
-
-    private short floor;
-    private Direction direction;
 
     @FXML
     private Label currentFloorLabel;
     private List<Button> buttonList = new ArrayList<>();
-    private EventHandler<ActionEvent> goToEvent = new EventHandler<ActionEvent>() {
-        @Override
-        public void handle(ActionEvent event) {
-            //System.out.println("panneau interne: " + elevatorControl.getCommandEngineRoot().getCurrentFloor() + " --> " + ((Button) event.getSource()).getText());
-            //elevatorControl.request((short) Integer.parseInt(((Button) event.getSource()).getText()), Direction.STAY);
-            floor = (short) Integer.parseInt(((Button) event.getSource()).getText());
-            direction = Direction.STAY;
-            notifyObservers();
-        }
+    private EventHandler<ActionEvent> callEvent = event -> {
+        short floor = (short) Integer.parseInt(((Button) event.getSource()).getText());
+        Direction direction = Direction.STAY;
+        notifyObservers(floor, direction);
     };
-    private EventHandler<ActionEvent> emergencyEvent = new EventHandler<ActionEvent>() {
-        @Override
-        public void handle(ActionEvent event) {
-            //elevatorControl.emergencyStop();
-            notifyEmergencyStop();
-        }
-    };
+    private EventHandler<ActionEvent> emergencyEvent = event -> notifyEmergencyStop();
 
 
-    public InternalControlPanel(short nbFloor, ElevatorControl elevatorControl){
-        //this.elevatorControl = elevatorControl;
-        addObserver(elevatorControl);
+    public InternalControlPanel(short nbFloor){
         loadFXML();
         initButtons(nbFloor);
     }
-
-
 
 
     private void loadFXML(){
@@ -74,7 +55,7 @@ public class InternalControlPanel extends AnchorPane {
             floor.setPrefWidth(70);
             floor.setLayoutX(80);
             floor.setLayoutY(120 + (70 * j--));
-            floor.setOnAction(goToEvent);
+            floor.setOnAction(callEvent);
             this.getChildren().add(floor);
             buttonList.add(floor);
         }
@@ -97,13 +78,9 @@ public class InternalControlPanel extends AnchorPane {
         this.observers.add(observer);
     }
 
-    public void removeObserver(PanelObserver observer) {
-        this.observers.remove(observer);
-    }
-
-    public void notifyObservers() {
+    public void notifyObservers(short floor, Direction direction) {
         for (PanelObserver observer : this.observers) {
-            observer.updateInternalControlPanel(this);
+            observer.updateRequest(floor, direction);
         }
     }
 
@@ -112,13 +89,4 @@ public class InternalControlPanel extends AnchorPane {
             observer.notifyEmergencyStop();
         }
     }
-
-    public short getFloor() {
-        return floor;
-    }
-
-    public Direction getDirection() {
-        return direction;
-    }
-
 }

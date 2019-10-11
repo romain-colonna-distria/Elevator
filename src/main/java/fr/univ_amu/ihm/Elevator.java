@@ -7,17 +7,13 @@ import javafx.scene.layout.AnchorPane;
 
 public class Elevator extends AnchorPane {
 
-    public Elevator(){
-        double x = 108.0;
-        double y = 529.0;
-        double width = 90.0;
-        double heigth = 110.0;
-        ImageView elevatorFont = new ImageView(new Image("image/peopleInElevator.png"));
+    public Elevator(double x, double y, double width, double heigth){
+        ImageView elevatorFont = new ImageView(new Image("image/elevator.png"));
         setLayoutX(x);
         setLayoutY(y);
         setPrefWidth(width);
         setPrefHeight(heigth);
-        setStyle("-fx-border-color: #000000;");
+        //setStyle("-fx-border-color: #000000;");
 
         elevatorFont.setFitWidth(width);
         elevatorFont.setFitHeight(heigth);

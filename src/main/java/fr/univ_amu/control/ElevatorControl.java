@@ -1,32 +1,43 @@
 package fr.univ_amu.control;
 
+import fr.univ_amu.observer.PanelObserver;
+import fr.univ_amu.observer.FloorObserver;
+import fr.univ_amu.observer.WaitingLineObserver;
 import fr.univ_amu.engine.CommandEngine;
 import fr.univ_amu.utils.Direction;
-import fr.univ_amu.ihm.ExternalControlPanel;
 import fr.univ_amu.ihm.InternalControlPanel;
 import javafx.application.Platform;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static fr.univ_amu.utils.Constant.*;
 
 
-public class ElevatorControl {
-    private CommandEngine commandEngineRoot;
-    private List<ExternalControlPanel> externalControlPanels = new LinkedList<>();
+public class ElevatorControl implements FloorObserver, PanelObserver {
+    private CommandEngine commandEngine;
+
+    private List<WaitingLineObserver> waitingLineObservers;
+
     private InternalControlPanel internalControlPanel;
+
     private AtomicBoolean isFloorChange = new AtomicBoolean(false);
+    private AtomicBoolean isCancelEmergency = new AtomicBoolean(false);
+    private AtomicInteger currentFloor = new AtomicInteger(0);
 
     private Queue<Short> upWaitingLine;
     private Queue<Short> downWaitingLine;
+
+
     private volatile Object lock = new Object();
 
 
     public ElevatorControl(CommandEngine commandEngine){
-        this.commandEngineRoot = commandEngine;
+        this.commandEngine = commandEngine;
+        this.waitingLineObservers = new ArrayList<>();
 
-        Comparator<Short> upComparator = (o1, o2) -> o1 - o2;
+        Comparator<Short> upComparator = Comparator.comparingInt(o -> o);
         upWaitingLine = new PriorityQueue<>(upComparator);
         Comparator<Short> downComparator = (o1, o2) -> o2 - o1;
         downWaitingLine = new PriorityQueue<>(downComparator);
@@ -37,66 +48,66 @@ public class ElevatorControl {
 
 
     public void request(short targetFloor, Direction directionAfterReachingTargetFloor) {
-        short currentFloor = (short)commandEngineRoot.getCurrentFloor();
-
-        if(targetFloor == currentFloor) return;
-        if(upWaitingLine.contains(targetFloor)) return; //si étage déja présent dans la file d'attente des étages on ne fais rien
+        if(isCancelEmergency.get()) return;
+        if(targetFloor == currentFloor.get()) return;
+        if(upWaitingLine.contains(targetFloor)) return;
         if(downWaitingLine.contains(targetFloor)) return;
 
         /* vérif quand on est dans la cabine */
-        if(currentFloor == FLOOR_MAX && targetFloor > currentFloor) return; //si requete pour monter plus haut que max on fais rien
-        if(currentFloor == FLOOR_MIN && targetFloor < currentFloor) return; //si requete pour descendre plus bas que min on fais rien
+        if(currentFloor.get() == FLOOR_MAX && targetFloor > currentFloor.get()) return; //si requete pour monter plus haut que max on fais rien
+        if(currentFloor.get() == FLOOR_MIN && targetFloor < currentFloor.get()) return; //si requete pour descendre plus bas que min on fais rien
 
         /* vérif quand on est pas dans l'ascenseur */
-        if(targetFloor == FLOOR_MAX && directionAfterReachingTargetFloor.equals(Direction.UP)) return; //si requete pour monter alors qu'on est au max
-        if(targetFloor == FLOOR_MIN && directionAfterReachingTargetFloor.equals(Direction.DOWN)) return; //si requete pour descendre alors qu'on est au min
+        if(targetFloor == FLOOR_MAX && directionAfterReachingTargetFloor.equals(Direction.UP)) return;
+        if(targetFloor == FLOOR_MIN && directionAfterReachingTargetFloor.equals(Direction.DOWN)) return;
 
         orderRequest(targetFloor, directionAfterReachingTargetFloor);
     }
 
-
-    @SuppressWarnings("Duplicates")    //TODO: mieux faire algo
     private void orderRequest(short targetFloor, Direction directionAfterReachingTargetFloor){
-        System.out.print("order request: ");
         synchronized (lock) {
-            if(commandEngineRoot.getCurrentFloor() < targetFloor){
-                System.out.println("ajouté up: " + targetFloor);
+            if(directionAfterReachingTargetFloor.equals(Direction.UP)){
                 upWaitingLine.add(targetFloor);
-                System.out.println("---up---" + upWaitingLine);
-            } else if(commandEngineRoot.getCurrentFloor() > targetFloor){
-                System.out.println("ajouté down: " + targetFloor);
+            } else if(directionAfterReachingTargetFloor.equals(Direction.DOWN)){
                 downWaitingLine.add(targetFloor);
-                System.out.println("---do---" + downWaitingLine);
             } else {
-                System.out.println("??????????????????????");
+                if (currentFloor.get() < targetFloor) {
+                    upWaitingLine.add(targetFloor);
+                } else {
+                    downWaitingLine.add(targetFloor);
+                }
             }
 
-            Platform.runLater(() -> commandEngineRoot.getElevatorShaft().getRoot().updateWaitingLine(getCompleteWaitingLine()));
+            Platform.runLater(this::notifyWaitingLineChange);
             lock.notifyAll();
         }
     }
 
-    public void emergencyStop(){
-        if(commandEngineRoot.getCanMove().get()) {
-            upWaitingLine.clear();
-            downWaitingLine.clear();
 
-            commandEngineRoot.emergencyStop();
 
-            Platform.runLater(() -> commandEngineRoot.getElevatorShaft().getRoot().updateWaitingLine(getCompleteWaitingLine()));
+    @Override
+    public void updateFloor() {
+        Direction direction = commandEngine.getDirection();
+        isFloorChange.set(true);
+
+        if(direction.equals(Direction.UP)) currentFloor.incrementAndGet();
+        else if(direction.equals(Direction.DOWN)) currentFloor.decrementAndGet();
+        else return;
+
+        internalControlPanel.setCurrentFloorLabelText(String.valueOf(currentFloor.get()));
+
+        synchronized (lock){
+            lock.notifyAll();
         }
-        else
-            commandEngineRoot.cancelEmergencyStop();
     }
 
-    public CommandEngine getCommandEngineRoot() {
-        return commandEngineRoot;
+    private void notifyWaitingLineChange(){
+        for(WaitingLineObserver observer : waitingLineObservers)
+            observer.updateWaitingLine(getCompleteWaitingLine());
     }
-    public void setExternalControlPanels(List<ExternalControlPanel> externalControlPanels) {
-        this.externalControlPanels = externalControlPanels;
-    }
-    public void setInternalControlPanel(InternalControlPanel internalControlPanel) {
-        this.internalControlPanel = internalControlPanel;
+
+    public void addWaitingLineObserver(WaitingLineObserver observer){
+        this.waitingLineObservers.add(observer);
     }
 
     public List<Short> getCompleteWaitingLine(){
@@ -109,60 +120,98 @@ public class ElevatorControl {
         if(upWaitingLine.isEmpty() && downWaitingLine.isEmpty())
             return new PriorityQueue<>();
         else {
-            if(upWaitingLine.isEmpty()) return downWaitingLine;
+            if(!upWaitingLine.isEmpty() && !downWaitingLine.isEmpty()) {
+                return commandEngine.getDirection().equals(Direction.UP) ? upWaitingLine : downWaitingLine;
+            }
+            else if(upWaitingLine.isEmpty()) return downWaitingLine;
             else return upWaitingLine;
         }
     }
 
+    public void setInternalControlPanel(InternalControlPanel internalControlPanel) {
+        this.internalControlPanel = internalControlPanel;
+    }
 
-    public void notifyFloorChange(){
-        isFloorChange.set(true);
-        internalControlPanel.setCurrentFloorLabelText(String.valueOf(commandEngineRoot.getCurrentFloor()));
-        synchronized (lock){
-            lock.notifyAll();
+
+    public void emergencyStop(){
+        if(commandEngine.getCanMove().get()) {
+            commandEngine.emergencyStop();
+            isCancelEmergency.set(false);
+
+            upWaitingLine.clear();
+            downWaitingLine.clear();
+
+            Platform.runLater(this::notifyWaitingLineChange);
         }
+        else {
+            commandEngine.cancelEmergencyStop();
+            isCancelEmergency.set(true);
+            synchronized (lock) {
+                lock.notifyAll();
+            }
+        }
+    }
+
+    @Override
+    public void updateRequest(short floor, Direction direction) {
+        request(floor, direction);
+    }
+
+    @Override
+    public void notifyEmergencyStop() {
+        this.emergencyStop();
     }
 
 
     private class Control_Runnable implements Runnable {
         @Override
         public void run() {
-            short currentFloor = 0;
             synchronized (lock) {
                 while (true) {
                     try {
                         while (getCompleteWaitingLine().isEmpty()) {
-                            System.out.println("dodo1");
                             lock.wait();
-                            System.out.println("-dodo1");
                         }
 
-                        if(isFloorChange.get()){
-                            isFloorChange.set(false);
-                            currentFloor = (short)commandEngineRoot.getCurrentFloor();
+                        Queue<Short> actualWaitingLine = getActualWaitingLine();
+                        while(!actualWaitingLine.isEmpty()) {
+                            if (isFloorChange.get()) {
+                                System.out.println("floor change");
+                                isFloorChange.set(false);
 
-                            if(getActualWaitingLine().peek() != null && currentFloor == getActualWaitingLine().peek()){
-                                getActualWaitingLine().poll();
-                                commandEngineRoot.stop();
-                                Platform.runLater(() -> commandEngineRoot.getElevatorShaft().getRoot().updateWaitingLine(getCompleteWaitingLine()));
-                                Thread.sleep(1000);
-                                continue;
+                                if (actualWaitingLine.peek() != null && currentFloor.get() == actualWaitingLine.peek()) {
+                                    actualWaitingLine.poll();
+                                    commandEngine.stop();
+                                    Platform.runLater(ElevatorControl.this::notifyWaitingLineChange);
+                                    Thread.sleep(1000);
+                                    continue;
+                                }
                             }
-                        }
 
-                        short targetFloor = getActualWaitingLine().peek();
-                        try {
-                            if (targetFloor > currentFloor) {
-                                commandEngineRoot.goUp();
-                                while (!isFloorChange.get())
-                                    lock.wait();
-                            } else if (targetFloor < currentFloor) {
-                                commandEngineRoot.goDown();
-                                while (!isFloorChange.get())
-                                    lock.wait();
+                            short targetFloor = actualWaitingLine.peek();
+                            System.out.println("prochain: " + targetFloor);
+                            try {
+                                if (targetFloor > currentFloor.get()) {
+                                    commandEngine.goUp();
+                                    while (!isFloorChange.get()) {
+                                        System.out.println("11111");
+                                        lock.wait();
+                                        System.out.println("22222");
+                                        if(isCancelEmergency.get()) break;
+                                    }
+                                } else if (targetFloor < currentFloor.get()) {
+                                    commandEngine.goDown();
+                                    while (!isFloorChange.get()) {
+                                        System.out.println("33333");
+                                        lock.wait();
+                                        System.out.println("44444");
+                                        if(isCancelEmergency.get()) break;
+                                    }
+                                }
+                                if(isCancelEmergency.get()) isCancelEmergency.set(false);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
                             }
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
                         }
                     } catch (InterruptedException e) {
                         e.printStackTrace();
@@ -172,133 +221,3 @@ public class ElevatorControl {
         }
     }
 }
-
-
-/*
-
-            if(commandEngineRoot.getDirection().equals(Direction.UP)){
-                if(directionAfterReachingTargetFloor.equals(Direction.UP)){
-                    if(commandEngineRoot.getCurrentFloor() > targetFloor){
-                        downWaitingLine.add(targetFloor);
-                    } else if(commandEngineRoot.getCurrentFloor() < targetFloor) {
-                        upWaitingLine.add(targetFloor);
-                    } else {
-                        //je sais pas
-                    }
-                } else if(directionAfterReachingTargetFloor.equals(Direction.DOWN)) {
-                    if(commandEngineRoot.getCurrentFloor() > targetFloor){
-                        downWaitingLine.add(targetFloor);
-                    } else if(commandEngineRoot.getCurrentFloor() < targetFloor) {
-                        downWaitingLine.add(targetFloor);
-                    } else {
-                        downWaitingLine.add(targetFloor);
-                    }
-                } else {
-                    if(commandEngineRoot.getCurrentFloor() > targetFloor){
-                        downWaitingLine.add(targetFloor);
-                    } else if(commandEngineRoot.getCurrentFloor() < targetFloor) {
-                        upWaitingLine.add(targetFloor);
-                    } else {
-                        //étage raté car si égale déja passé
-                        downWaitingLine.add(targetFloor);
-                    }
-                }
-            } else if(commandEngineRoot.getDirection().equals(Direction.DOWN)) {
-                if(directionAfterReachingTargetFloor.equals(Direction.UP)){
-                    if(commandEngineRoot.getCurrentFloor() > targetFloor){
-                        //je sais pas
-                    } else if(commandEngineRoot.getCurrentFloor() < targetFloor) {
-                        upWaitingLine.add(targetFloor);
-                    } else {
-                        upWaitingLine.add(targetFloor);
-                    }
-                } else if(directionAfterReachingTargetFloor.equals(Direction.DOWN)) {
-                    if(commandEngineRoot.getCurrentFloor() > targetFloor){
-
-                    } else if(commandEngineRoot.getCurrentFloor() < targetFloor) {
-                        downWaitingLine.add(targetFloor);
-                    } else {
-                        upWaitingLine.add(targetFloor);
-                    }
-                } else {
-                    if(commandEngineRoot.getCurrentFloor() > targetFloor){
-                        downWaitingLine.add(targetFloor);
-                    } else if(commandEngineRoot.getCurrentFloor() < targetFloor) {
-                        upWaitingLine.add(targetFloor);
-                    } else {
-                        upWaitingLine.add(targetFloor);
-                    }
-                }
-            } else {
-                if(directionAfterReachingTargetFloor.equals(Direction.UP)){
-                    if(commandEngineRoot.getCurrentFloor() > targetFloor){
-                        downWaitingLine.add(targetFloor);
-                    } else if(commandEngineRoot.getCurrentFloor() < targetFloor) {
-                        upWaitingLine.add(targetFloor);
-                    } else {
-                        System.out.println("Déjà présent à l'étage");
-                    }
-                } else if(directionAfterReachingTargetFloor.equals(Direction.DOWN)) {
-                    if(commandEngineRoot.getCurrentFloor() > targetFloor){
-                        downWaitingLine.add(targetFloor);
-                    } else if(commandEngineRoot.getCurrentFloor() < targetFloor) {
-                        upWaitingLine.add(targetFloor);
-                    } else {
-                        System.out.println("Déjà présent à l'étage");
-                    }
-                } else {
-                    if(commandEngineRoot.getCurrentFloor() > targetFloor){
-                        downWaitingLine.add(targetFloor);
-                    } else if(commandEngineRoot.getCurrentFloor() < targetFloor) {
-                        upWaitingLine.add(targetFloor);
-                    } else {
-                        System.out.println("Déjà présent à l'étage");
-                    }
-                }
-            }
-
-
- */
-
-            /*
-            if(floorsWaitingLine.isEmpty()) {
-                floorsWaitingLine.add(targetFloor);
-            } else {
-                if(commandEngineRoot.getDirection().equals(Direction.UP)) {
-                    if (targetFloor < floorsWaitingLine.get(0)) { //dois etre sup a l'etage actuel
-                        floorsWaitingLine.add(0, targetFloor);
-                    } else if (floorsWaitingLine.size() >= 2) {
-                        boolean isAdd = false;
-                        for (short i = 1; i < floorsWaitingLine.size(); ++i) {
-                            if (targetFloor < floorsWaitingLine.get(i)) {
-                                isAdd = true;
-                                floorsWaitingLine.add(i, targetFloor);
-                            }
-                        }
-                        if (!isAdd) floorsWaitingLine.add(targetFloor);
-                    } else {
-                        floorsWaitingLine.add(targetFloor);
-                    }
-                } else if(commandEngineRoot.getDirection().equals(Direction.DOWN)){
-                    if (targetFloor > floorsWaitingLine.get(0)) {
-                        floorsWaitingLine.add(0, targetFloor);
-                    } else if (floorsWaitingLine.size() >= 2) {
-                        boolean isAdd = false;
-                        for (short i = 1; i < floorsWaitingLine.size(); ++i) {
-                            if (targetFloor > floorsWaitingLine.get(i)) {
-                                isAdd = true;
-                                floorsWaitingLine.add(i, targetFloor);
-                                break;
-                            }
-                        }
-                        if (!isAdd) floorsWaitingLine.add(targetFloor);
-                    } else {
-                        floorsWaitingLine.add(targetFloor);
-                    }
-                } else {
-                    System.out.println("pas tout compris");
-                    floorsWaitingLine.add(targetFloor);
-                }
-            }
-            //floorsWaitingLine.add(targetFloor);
-            */

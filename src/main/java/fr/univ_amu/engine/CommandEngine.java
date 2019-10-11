@@ -1,26 +1,34 @@
 package fr.univ_amu.engine;
 
-import fr.univ_amu.ihm.ElevatorShaft;
+import fr.univ_amu.ihm.Elevator;
+import fr.univ_amu.observer.FloorObserver;
 import fr.univ_amu.utils.Direction;
 import javafx.application.Platform;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static fr.univ_amu.utils.Constant.FLOOR_SIZE;
 
-public class CommandEngine{
-    private ElevatorShaft elevatorShaft;
-    private AtomicInteger currentFloor = new AtomicInteger(0);
+
+public class CommandEngine {
+    private List<FloorObserver> floorObservers;
+    private Elevator elevator;
     private AtomicBoolean canMove = new AtomicBoolean(true);
     private boolean stopNextFloor = false;
     private Direction direction = Direction.STAY;
 
+    private Thread engine;
+    private Engine_Runnable engine_runnable = new Engine_Runnable();
+
     private static volatile Object lock = new Object();
 
-    public CommandEngine(ElevatorShaft elevatorShaft){
-        this.elevatorShaft = elevatorShaft;
-        new Thread(new Engine_Runnable()).start();
+    public CommandEngine(Elevator elevator){
+        this.floorObservers = new ArrayList<>();
+        this.elevator = elevator;
+        engine = new Thread(engine_runnable);
+        engine.start();
     }
 
     public void goUp(){
@@ -39,13 +47,14 @@ public class CommandEngine{
             }
         }
     }
+
     public void stop(){
         direction = Direction.STAY;
     }
+
     public void emergencyStop(){
         canMove.set(false);
     }
-
 
     public void cancelEmergencyStop(){
         canMove.set(true);
@@ -54,75 +63,81 @@ public class CommandEngine{
         }
     }
 
+    private void notifyPositionChange(){
+        for (FloorObserver observer : floorObservers)
+            observer.updateFloor();
+    }
+
+    public void addObserver(FloorObserver observer){
+        this.floorObservers.add(observer);
+    }
+
     public void stopNextFloor(){
         stopNextFloor = true;
-    }
-
-
-    public void updateCurrentFloor(short newCurrentFloor){
-        currentFloor.set(newCurrentFloor);
-        elevatorShaft.getElevatorControl().notifyFloorChange();
-    }
-
-    public int getCurrentFloor() {
-        return currentFloor.get();
-    }
-
-    public Direction getDirection() {
-        return direction;
-    }
-
-    public ElevatorShaft getElevatorShaft() {
-        return elevatorShaft;
     }
 
     public AtomicBoolean getCanMove() {
         return canMove;
     }
+    public Direction getDirection() {
+        return direction;
+    }
+
 
     private class Engine_Runnable implements Runnable {
-        private void move() throws InterruptedException {
-            int i = 0;
+        private int i = 0;
+
+        private void stopEngine() throws InterruptedException {
+            synchronized (lock){
+                while (!canMove.get()) {
+                    System.out.println("Arrêt du moteur");
+                    stop();
+                    lock.wait();
+                }
+                startEngine();
+            }
+        }
+
+        private void checkFloorChange(){
+            if (i % (FLOOR_SIZE - 1) == 0) {
+                i = 0;
+                notifyPositionChange();
+                if (stopNextFloor) {
+                    direction = Direction.STAY;
+                    stopNextFloor = false;
+                }
+            }
+        }
+
+        private void startEngine() throws InterruptedException {
+            System.out.println("Démarrage du moteur");
             while (true) {
                 synchronized (lock){
-                    while(direction.equals(Direction.STAY)){
-                        System.out.println("--------------------------");
-                        System.out.println("Ascenseur en pause");
+                    while(direction.equals(Direction.STAY))
                         lock.wait();
-                        System.out.println("Fin pause");
-                        System.out.println("--------------------------");
-                    }
                 }
                 short j = (short) (direction.equals(Direction.UP) ? 1 : -1);
 
                 while (!canMove.get()) {
+                    System.out.println("can't move");
+                    stop();
                     synchronized (lock) {
-                        //stopNextFloor = true;
-                        direction = Direction.STAY;
-                        System.out.println("wait2");
                         lock.wait();
-                        System.out.println("fin wait2");
                     }
                 }
-                Platform.runLater(() -> elevatorShaft.getElevator().setLayoutY(elevatorShaft.getElevator().getLayoutY() - j));
-                ++i;//i += j;
-                Thread.sleep(10);
 
-                if (i % (FLOOR_SIZE - 1) == 0) {
-                    updateCurrentFloor((short) (currentFloor.get() + j));
-                    i = currentFloor.get() * FLOOR_SIZE;
-                    if (stopNextFloor) {
-                        direction = Direction.STAY;
-                        stopNextFloor = false;
-                    }
-                }
+                Platform.runLater(() -> elevator.setLayoutY(elevator.getLayoutY() - j));
+                ++i;
+                checkFloorChange();
+
+                Thread.sleep(10);
             }
         }
 
         @Override
         public void run() {
             try {
-                move();
+                startEngine();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
