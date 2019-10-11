@@ -17,7 +17,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class InternalControlPanel extends AnchorPane {
-    private ElevatorControl elevatorControl;
+    //private ElevatorControl elevatorControl;
+    private List<PanelObserver> observers = new ArrayList<>();
+
+    private short floor;
+    private Direction direction;
 
     @FXML
     private Label currentFloorLabel;
@@ -25,20 +29,25 @@ public class InternalControlPanel extends AnchorPane {
     private EventHandler<ActionEvent> goToEvent = new EventHandler<ActionEvent>() {
         @Override
         public void handle(ActionEvent event) {
-            System.out.println("panneau interne: " + elevatorControl.getCommandEngineRoot().getCurrentFloor() + " --> " + ((Button) event.getSource()).getText());
-            elevatorControl.request((short) Integer.parseInt(((Button) event.getSource()).getText()), Direction.STAY);
+            //System.out.println("panneau interne: " + elevatorControl.getCommandEngineRoot().getCurrentFloor() + " --> " + ((Button) event.getSource()).getText());
+            //elevatorControl.request((short) Integer.parseInt(((Button) event.getSource()).getText()), Direction.STAY);
+            floor = (short) Integer.parseInt(((Button) event.getSource()).getText());
+            direction = Direction.STAY;
+            notifyObservers();
         }
     };
     private EventHandler<ActionEvent> emergencyEvent = new EventHandler<ActionEvent>() {
         @Override
         public void handle(ActionEvent event) {
-            elevatorControl.emergencyStop();
+            //elevatorControl.emergencyStop();
+            notifyEmergencyStop();
         }
     };
 
 
     public InternalControlPanel(short nbFloor, ElevatorControl elevatorControl){
-        this.elevatorControl = elevatorControl;
+        //this.elevatorControl = elevatorControl;
+        addObserver(elevatorControl);
         loadFXML();
         initButtons(nbFloor);
     }
@@ -83,4 +92,33 @@ public class InternalControlPanel extends AnchorPane {
     public void setCurrentFloorLabelText(String currentFloor) {
         Platform.runLater(() -> currentFloorLabel.setText(currentFloor));
     }
+
+    public void addObserver(PanelObserver observer) {
+        this.observers.add(observer);
+    }
+
+    public void removeObserver(PanelObserver observer) {
+        this.observers.remove(observer);
+    }
+
+    public void notifyObservers() {
+        for (PanelObserver observer : this.observers) {
+            observer.updateInternalControlPanel(this);
+        }
+    }
+
+    private void notifyEmergencyStop() {
+        for (PanelObserver observer : this.observers) {
+            observer.notifyEmergencyStop();
+        }
+    }
+
+    public short getFloor() {
+        return floor;
+    }
+
+    public Direction getDirection() {
+        return direction;
+    }
+
 }
