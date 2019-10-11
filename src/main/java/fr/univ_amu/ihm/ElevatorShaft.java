@@ -26,11 +26,6 @@ public class ElevatorShaft extends AnchorPane {
         view.setFitHeight(640.0);
         this.getChildren().add(view);
     }
-
-    public void addChildren(Node node){
-        this.getChildren().add(node);
-    }
-
     private void initLabels(short nbFloor){
         int j = nbFloor - 1;
         for(short i = 0; i < nbFloor; ++i){
@@ -39,5 +34,9 @@ public class ElevatorShaft extends AnchorPane {
             tmp.setLayoutY(70 + (125 * j--));
             this.getChildren().add(tmp);
         }
+    }
+
+    public void addChildren(Node children){
+        this.getChildren().add(children);
     }
 }

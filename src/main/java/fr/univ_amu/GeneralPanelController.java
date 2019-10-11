@@ -38,7 +38,7 @@ public class GeneralPanelController implements WaitingLineObserver {
         CommandEngine engine = new CommandEngine(elevator);
         ElevatorControl control = new ElevatorControl(engine);
 
-        engine.addObserver(control);
+        engine.addFloorObserver(control);
         control.addWaitingLineObserver(this);
 
         elevatorShaft.addChildren(elevator);
@@ -55,7 +55,7 @@ public class GeneralPanelController implements WaitingLineObserver {
             externalControlPanels.add(tmp);
         }
         for(ExternalControlPanel panel : externalControlPanels) {
-            panel.addObserver(control);
+            panel.addPanelObserver(control);
             elevatorShaft.addChildren(panel);
         }
         /* ***************************************** */
@@ -64,7 +64,7 @@ public class GeneralPanelController implements WaitingLineObserver {
         InternalControlPanel internalControlPanel = new InternalControlPanel(Constant.NB_FLOORS);
         internalControlPanel.setLayoutX(410.0);
         internalControlPanel.setLayoutY(25.0);
-        internalControlPanel.addObserver(control);
+        internalControlPanel.addPanelObserver(control);
         control.setInternalControlPanel(internalControlPanel);
         rootAnchorPane.getChildren().add(internalControlPanel);
         /* ***************************************** */

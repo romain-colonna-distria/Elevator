@@ -70,15 +70,7 @@ public class InternalControlPanel extends AnchorPane {
 
     }
 
-    public void setCurrentFloorLabelText(String currentFloor) {
-        Platform.runLater(() -> currentFloorLabel.setText(currentFloor));
-    }
-
-    public void addObserver(PanelObserver observer) {
-        this.observers.add(observer);
-    }
-
-    public void notifyObservers(short floor, Direction direction) {
+    private void notifyObservers(short floor, Direction direction) {
         for (PanelObserver observer : this.observers) {
             observer.updateRequest(floor, direction);
         }
@@ -88,5 +80,13 @@ public class InternalControlPanel extends AnchorPane {
         for (PanelObserver observer : this.observers) {
             observer.notifyEmergencyStop();
         }
+    }
+
+    public void addPanelObserver(PanelObserver observer) {
+        this.observers.add(observer);
+    }
+
+    public void setCurrentFloorLabelText(String currentFloor) {
+        Platform.runLater(() -> currentFloorLabel.setText(currentFloor));
     }
 }

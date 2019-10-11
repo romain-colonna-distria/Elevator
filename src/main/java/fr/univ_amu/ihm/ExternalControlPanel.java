@@ -2,7 +2,6 @@ package fr.univ_amu.ihm;
 
 import fr.univ_amu.observer.PanelObserver;
 import fr.univ_amu.utils.Direction;
-
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.fxml.FXMLLoader;
@@ -77,7 +76,7 @@ public class ExternalControlPanel extends AnchorPane {
         }
     }
 
-    public void addObserver(PanelObserver observer) {
+    public void addPanelObserver(PanelObserver observer) {
         this.observers.add(observer);
     }
 }

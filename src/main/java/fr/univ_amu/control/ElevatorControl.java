@@ -29,8 +29,8 @@ public class ElevatorControl implements FloorObserver, PanelObserver {
     private Queue<Short> upWaitingLine;
     private Queue<Short> downWaitingLine;
 
+    private static volatile Object lock = new Object();
 
-    private volatile Object lock = new Object();
 
 
     public ElevatorControl(CommandEngine commandEngine){
@@ -47,11 +47,15 @@ public class ElevatorControl implements FloorObserver, PanelObserver {
     }
 
 
-    public void request(short targetFloor, Direction directionAfterReachingTargetFloor) {
+
+    private void request(short targetFloor, Direction directionAfterReachingTargetFloor) {
         if(isCancelEmergency.get()) return;
         if(targetFloor == currentFloor.get()) return;
-        if(upWaitingLine.contains(targetFloor)) return;
-        if(downWaitingLine.contains(targetFloor)) return;
+
+        if(directionAfterReachingTargetFloor.equals(Direction.UP) && upWaitingLine.contains(targetFloor)) return;
+        if(directionAfterReachingTargetFloor.equals(Direction.DOWN) && downWaitingLine.contains(targetFloor)) return;
+        //if(upWaitingLine.contains(targetFloor)) return;
+        //if(downWaitingLine.contains(targetFloor)) return;
 
         /* vérif quand on est dans la cabine */
         if(currentFloor.get() == FLOOR_MAX && targetFloor > currentFloor.get()) return; //si requete pour monter plus haut que max on fais rien
@@ -83,57 +87,7 @@ public class ElevatorControl implements FloorObserver, PanelObserver {
         }
     }
 
-
-
-    @Override
-    public void updateFloor() {
-        Direction direction = commandEngine.getDirection();
-        isFloorChange.set(true);
-
-        if(direction.equals(Direction.UP)) currentFloor.incrementAndGet();
-        else if(direction.equals(Direction.DOWN)) currentFloor.decrementAndGet();
-        else return;
-
-        internalControlPanel.setCurrentFloorLabelText(String.valueOf(currentFloor.get()));
-
-        synchronized (lock){
-            lock.notifyAll();
-        }
-    }
-
-    private void notifyWaitingLineChange(){
-        for(WaitingLineObserver observer : waitingLineObservers)
-            observer.updateWaitingLine(getCompleteWaitingLine());
-    }
-
-    public void addWaitingLineObserver(WaitingLineObserver observer){
-        this.waitingLineObservers.add(observer);
-    }
-
-    public List<Short> getCompleteWaitingLine(){
-        List<Short> floorsWaitingLine = new ArrayList<>(upWaitingLine);
-        floorsWaitingLine.addAll(downWaitingLine);
-        return floorsWaitingLine;
-    }
-
-    public Queue<Short> getActualWaitingLine(){
-        if(upWaitingLine.isEmpty() && downWaitingLine.isEmpty())
-            return new PriorityQueue<>();
-        else {
-            if(!upWaitingLine.isEmpty() && !downWaitingLine.isEmpty()) {
-                return commandEngine.getDirection().equals(Direction.UP) ? upWaitingLine : downWaitingLine;
-            }
-            else if(upWaitingLine.isEmpty()) return downWaitingLine;
-            else return upWaitingLine;
-        }
-    }
-
-    public void setInternalControlPanel(InternalControlPanel internalControlPanel) {
-        this.internalControlPanel = internalControlPanel;
-    }
-
-
-    public void emergencyStop(){
+    private void emergencyStop(){
         if(commandEngine.getCanMove().get()) {
             commandEngine.emergencyStop();
             isCancelEmergency.set(false);
@@ -152,9 +106,57 @@ public class ElevatorControl implements FloorObserver, PanelObserver {
         }
     }
 
+    private List<Short> getCompleteWaitingLine(){
+        List<Short> floorsWaitingLine = new ArrayList<>(upWaitingLine);
+        floorsWaitingLine.addAll(downWaitingLine);
+        return floorsWaitingLine;
+    }
+
+
+    private Queue<Short> getActualWaitingLine(){
+        if(upWaitingLine.isEmpty() && downWaitingLine.isEmpty())
+            return new PriorityQueue<>();
+        else {
+            if(!upWaitingLine.isEmpty() && !downWaitingLine.isEmpty()) {
+                return commandEngine.getDirection().equals(Direction.UP) ? upWaitingLine : downWaitingLine;
+            }
+            else if(upWaitingLine.isEmpty()) return downWaitingLine;
+            else return upWaitingLine;
+        }
+    }
+
+    private void notifyWaitingLineChange(){
+        for(WaitingLineObserver observer : waitingLineObservers)
+            observer.updateWaitingLine(getCompleteWaitingLine());
+    }
+
+    public void addWaitingLineObserver(WaitingLineObserver observer){
+        this.waitingLineObservers.add(observer);
+    }
+
+    public void setInternalControlPanel(InternalControlPanel internalControlPanel) {
+        this.internalControlPanel = internalControlPanel;
+    }
+
+    @Override
+    public void updateFloor() {
+        Direction direction = commandEngine.getDirection();
+        isFloorChange.set(true);
+
+        if(direction.equals(Direction.UP)) currentFloor.incrementAndGet();
+        else if(direction.equals(Direction.DOWN)) currentFloor.decrementAndGet();
+        else return;
+
+        internalControlPanel.setCurrentFloorLabelText(String.valueOf(currentFloor.get()));
+
+        synchronized (lock){
+            lock.notifyAll();
+        }
+    }
+
     @Override
     public void updateRequest(short floor, Direction direction) {
-        request(floor, direction);
+        this.request(floor, direction);
     }
 
     @Override

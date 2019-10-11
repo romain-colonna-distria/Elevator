@@ -13,7 +13,6 @@ public class Elevator extends AnchorPane {
         setLayoutY(y);
         setPrefWidth(width);
         setPrefHeight(heigth);
-        //setStyle("-fx-border-color: #000000;");
 
         elevatorFont.setFitWidth(width);
         elevatorFont.setFitHeight(heigth);
