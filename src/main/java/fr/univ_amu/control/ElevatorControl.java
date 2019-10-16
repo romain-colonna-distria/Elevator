@@ -56,7 +56,7 @@ public class ElevatorControl implements FloorObserver, PanelObserver {
 
     private void request(short targetFloor, Direction directionAfterReachingTargetFloor) {
         if(isCancelEmergency.get()) return;
-        if(targetFloor == currentFloor.get()) return;
+        //if(targetFloor == currentFloor.get()) return;
 
         if(directionAfterReachingTargetFloor.equals(Direction.UP) && upWaitingLine.contains(targetFloor)) return;
         if(directionAfterReachingTargetFloor.equals(Direction.DOWN) && downWaitingLine.contains(targetFloor)) return;
@@ -75,25 +75,34 @@ public class ElevatorControl implements FloorObserver, PanelObserver {
     private void orderRequest(short targetFloor, Direction directionAfterReachingTargetFloor){
         if(directionAfterReachingTargetFloor.equals(Direction.UP)){
             if(commandEngine.getDirection().equals(Direction.STAY) && getActualWaitingLine().isEmpty()) {
+                System.out.println("1");
                 addToUpWaitingList(upWaitingLine, targetFloor);
             } else if (currentFloor.get() < targetFloor) {
+                System.out.println("2");
                 addToUpWaitingList(upWaitingLine, targetFloor);
             } else {
+                System.out.println("3");
                 addToUpWaitingList(upLateWaitingLine, targetFloor);
             }
-        } else if(directionAfterReachingTargetFloor.equals(Direction.DOWN) && getActualWaitingLine().isEmpty()){
-            if(commandEngine.getDirection().equals(Direction.STAY)) {
+        } else if(directionAfterReachingTargetFloor.equals(Direction.DOWN)){
+            if(commandEngine.getDirection().equals(Direction.STAY) && getActualWaitingLine().isEmpty()) {
+                System.out.println("a");
                 addToDownWaitingList(downWaitingLine, targetFloor);
-            } else if (currentFloor.get() < targetFloor) {
-                addToDownWaitingList(downLateWaitingLine, targetFloor);
+            } else if (currentFloor.get() > targetFloor) {
+                System.out.println("b");
+                addToDownWaitingList(downWaitingLine, targetFloor);
             } else {
-                addToDownWaitingList(downWaitingLine, targetFloor);
+                System.out.println("c");
+                addToDownWaitingList(downLateWaitingLine, targetFloor);
             }
         } else {
             if (currentFloor.get() < targetFloor) {
                 addToUpWaitingList(upWaitingLine, targetFloor);
-            } else {
+            } else if (currentFloor.get() > targetFloor){
                 addToDownWaitingList(downWaitingLine, targetFloor);
+            } else {
+                System.out.println();
+                addToActualWaitingList(targetFloor);
             }
         }
 
@@ -103,7 +112,16 @@ public class ElevatorControl implements FloorObserver, PanelObserver {
         }
     }
 
-    private synchronized void addToUpWaitingList(List<Short> upWaitingLine, short targetFloor){
+    private void addToActualWaitingList(short targetFloor){
+        if(getActualWaitingLine().equals(upWaitingLine))
+            addToDownWaitingList(downWaitingLine, targetFloor);
+        else if(getActualWaitingLine().equals(downWaitingLine))
+            addToUpWaitingList(upWaitingLine, targetFloor);
+        else
+            System.out.println("?????");
+    }
+
+    private void addToUpWaitingList(List<Short> upWaitingLine, short targetFloor){
         synchronized (lock) {
             if(upWaitingLine.contains(targetFloor)) return;
             boolean isAdded = false;
@@ -118,7 +136,7 @@ public class ElevatorControl implements FloorObserver, PanelObserver {
         }
     }
 
-    private synchronized void addToDownWaitingList(List<Short> downWaitingLine, short targetFloor){
+    private void addToDownWaitingList(List<Short> downWaitingLine, short targetFloor){
         synchronized (lock) {
             if(downWaitingLine.contains(targetFloor)) return;
             boolean isAdded = false;
@@ -132,6 +150,8 @@ public class ElevatorControl implements FloorObserver, PanelObserver {
             if (!isAdded) downWaitingLine.add(targetFloor);
         }
     }
+
+    //private void
 
     private void emergencyStop(){
         if(commandEngine.getCanMove().get()) {
