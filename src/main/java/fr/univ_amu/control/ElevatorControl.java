@@ -1,5 +1,7 @@
 package fr.univ_amu.control;
 
+import fr.univ_amu.MinimumStrategy;
+import fr.univ_amu.SatisfactionStrategy;
 import fr.univ_amu.observer.PanelObserver;
 import fr.univ_amu.observer.FloorObserver;
 import fr.univ_amu.observer.WaitingLineObserver;
@@ -17,8 +19,8 @@ import static fr.univ_amu.utils.Constant.*;
 
 public class ElevatorControl implements FloorObserver, PanelObserver {
     private CommandEngine commandEngine;
-
     private List<WaitingLineObserver> waitingLineObservers;
+    //private SatisfactionStrategy strategy;
 
     private InternalControlPanel internalControlPanel;
 
@@ -72,14 +74,17 @@ public class ElevatorControl implements FloorObserver, PanelObserver {
 
     private void orderRequest(short targetFloor, Direction directionAfterReachingTargetFloor){
         if(directionAfterReachingTargetFloor.equals(Direction.UP)){
-            if (currentFloor.get() < targetFloor) {
+            if(commandEngine.getDirection().equals(Direction.STAY)) {
+                addToUpWaitingList(upWaitingLine, targetFloor);
+            } else if (currentFloor.get() < targetFloor) {
                 addToUpWaitingList(upWaitingLine, targetFloor);
             } else {
                 addToUpWaitingList(upLateWaitingLine, targetFloor);
             }
         } else if(directionAfterReachingTargetFloor.equals(Direction.DOWN)){
-            if (currentFloor.get() < targetFloor) {
-                System.out.println("???");
+            if(commandEngine.getDirection().equals(Direction.STAY)) {
+                addToDownWaitingList(downWaitingLine, targetFloor);
+            } else if (currentFloor.get() < targetFloor) {
                 addToDownWaitingList(downLateWaitingLine, targetFloor);
             } else {
                 addToDownWaitingList(downWaitingLine, targetFloor);
@@ -206,6 +211,11 @@ public class ElevatorControl implements FloorObserver, PanelObserver {
         this.emergencyStop();
     }
 
+    /*
+    public void setStrategy(SatisfactionStrategy strategy) {
+        this.strategy = strategy;
+    }
+    */
 
     private class Control_Runnable implements Runnable {
         @Override
@@ -250,8 +260,10 @@ public class ElevatorControl implements FloorObserver, PanelObserver {
                                         if(isCancelEmergency.get()) break;
                                     }
                                 } else {
-                                    //TODO gerer le cas
+                                    actualWaitingLine.remove(0);
                                     commandEngine.stop();
+                                    Platform.runLater(ElevatorControl.this::notifyWaitingLineChange);
+                                    continue;
                                 }
                                 if(isCancelEmergency.get()) isCancelEmergency.set(false);
                             } catch (InterruptedException e) {
@@ -260,7 +272,6 @@ public class ElevatorControl implements FloorObserver, PanelObserver {
                         }
 
                         if(actualWaitingLine.equals(upWaitingLine)) {
-                            System.out.println("koko");
                             upWaitingLine.addAll(upLateWaitingLine);
                             upLateWaitingLine = new LinkedList<>();
 
@@ -269,7 +280,6 @@ public class ElevatorControl implements FloorObserver, PanelObserver {
 
                         }
                         else if(actualWaitingLine.equals(downWaitingLine)) {
-                            System.out.println("okok");
                             downWaitingLine.addAll(downLateWaitingLine);
                             downLateWaitingLine = new LinkedList<>();
 
@@ -286,3 +296,68 @@ public class ElevatorControl implements FloorObserver, PanelObserver {
         }
     }
 }
+
+
+
+/*
+
+
+
+        if(directionAfterReachingTargetFloor.equals(Direction.UP)){
+            if(commandEngine.getDirection().equals(Direction.STAY)) {
+                if(directionAfterReachingTargetFloor.equals(Direction.UP)){
+
+                } else if(directionAfterReachingTargetFloor.equals(Direction.DOWN)){
+
+                } else {
+
+                }
+            } else if (currentFloor.get() < targetFloor) {
+                if(directionAfterReachingTargetFloor.equals(Direction.UP)){
+
+                } else if(directionAfterReachingTargetFloor.equals(Direction.DOWN)){
+
+                } else {
+
+                }
+            } else {
+                if(directionAfterReachingTargetFloor.equals(Direction.UP)){
+
+                } else if(directionAfterReachingTargetFloor.equals(Direction.DOWN)){
+
+                } else {
+
+                }
+            }
+        } else if(directionAfterReachingTargetFloor.equals(Direction.DOWN)){
+            if(commandEngine.getDirection().equals(Direction.STAY)) {
+                if(directionAfterReachingTargetFloor.equals(Direction.UP)){
+
+                } else if(directionAfterReachingTargetFloor.equals(Direction.DOWN)){
+
+                } else {
+
+                }
+            } else if (currentFloor.get() < targetFloor) {
+                 if(directionAfterReachingTargetFloor.equals(Direction.UP)){
+
+                } else if(directionAfterReachingTargetFloor.equals(Direction.DOWN)){
+
+                } else {
+
+                }
+            } else {
+                addToDownWaitingList(downWaitingLine, targetFloor);
+            }
+        } else {
+            if (currentFloor.get() < targetFloor) {
+                addToUpWaitingList(upWaitingLine, targetFloor);
+            } else {
+                addToDownWaitingList(downWaitingLine, targetFloor);
+            }
+        }
+
+
+
+
+ */
