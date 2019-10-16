@@ -8,7 +8,7 @@
 
       <AnchorPane layoutX="410.0" layoutY="618.0" prefHeight="56.0" prefWidth="230.0" style="-fx-border-color: #000000;">
          <children>
-            <Label layoutX="3.0" layoutY="20.0" text="file d'attente des desserves (a venir)" />
+            <Label fx:id="floorWaintingLineLabel" alignment="CENTER" layoutX="3.0" layoutY="20.0" prefHeight="17.0" prefWidth="224.0" text="[]" />
          </children>
       </AnchorPane>
 

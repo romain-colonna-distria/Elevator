@@ -1,7 +1,7 @@
-package fr.univ_amu.object;
+package fr.univ_amu.ihm;
 
-import fr.univ_amu.command.Direction;
-import fr.univ_amu.control.ElevatorControl;
+import fr.univ_amu.observer.PanelObserver;
+import fr.univ_amu.utils.Direction;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.fxml.FXMLLoader;
@@ -12,9 +12,12 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.AnchorPane;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ExternalControlPanel extends AnchorPane {
-    private ElevatorControl elevatorControl;
+    private List<PanelObserver> observers = new ArrayList<>();
+
     private short floor;
     private Button upButton;
     private Button downButton;
@@ -23,12 +26,12 @@ public class ExternalControlPanel extends AnchorPane {
         @Override
         public void handle(ActionEvent event) {
             Direction direction = ((Button)event.getSource()).getId().equals("up") ? Direction.UP : Direction.DOWN;
-            elevatorControl.call(floor, direction);
+            notifyObservers(floor, direction);
         }
     };
 
-    public ExternalControlPanel(short floor, ElevatorControl elevatorControl){
-        this.elevatorControl = elevatorControl;
+
+    public ExternalControlPanel(short floor) {
         this.floor = floor;
         loadFXML();
         initButtons();
@@ -65,5 +68,15 @@ public class ExternalControlPanel extends AnchorPane {
         downButton = (Button)this.getChildren().get(1);
         downButton.setGraphic(new ImageView(new Image("image/down_icon_16px.png")));
         downButton.setLayoutY(27.0);
+    }
+
+    public void notifyObservers(short floor, Direction direction) {
+        for (PanelObserver observer : this.observers) {
+            observer.updateRequest(floor, direction);
+        }
+    }
+
+    public void addPanelObserver(PanelObserver observer) {
+        this.observers.add(observer);
     }
 }

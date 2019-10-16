@@ -1,4 +1,4 @@
-package fr.univ_amu.command;
+package fr.univ_amu.utils;
 
 public enum Direction {
     UP,
