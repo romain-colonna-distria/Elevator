@@ -74,14 +74,14 @@ public class ElevatorControl implements FloorObserver, PanelObserver {
 
     private void orderRequest(short targetFloor, Direction directionAfterReachingTargetFloor){
         if(directionAfterReachingTargetFloor.equals(Direction.UP)){
-            if(commandEngine.getDirection().equals(Direction.STAY)) {
+            if(commandEngine.getDirection().equals(Direction.STAY) && getActualWaitingLine().isEmpty()) {
                 addToUpWaitingList(upWaitingLine, targetFloor);
             } else if (currentFloor.get() < targetFloor) {
                 addToUpWaitingList(upWaitingLine, targetFloor);
             } else {
                 addToUpWaitingList(upLateWaitingLine, targetFloor);
             }
-        } else if(directionAfterReachingTargetFloor.equals(Direction.DOWN)){
+        } else if(directionAfterReachingTargetFloor.equals(Direction.DOWN) && getActualWaitingLine().isEmpty()){
             if(commandEngine.getDirection().equals(Direction.STAY)) {
                 addToDownWaitingList(downWaitingLine, targetFloor);
             } else if (currentFloor.get() < targetFloor) {
@@ -228,7 +228,6 @@ public class ElevatorControl implements FloorObserver, PanelObserver {
                         }
 
                         List<Short> actualWaitingLine = getActualWaitingLine();
-                        short maxIndex = (short) (actualWaitingLine.size() - 1);
 
                         while(!actualWaitingLine.isEmpty()) {
                             if (isFloorChange.get()) {
