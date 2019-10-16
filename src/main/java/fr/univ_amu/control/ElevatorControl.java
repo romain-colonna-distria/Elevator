@@ -26,8 +26,11 @@ public class ElevatorControl implements FloorObserver, PanelObserver {
     private AtomicBoolean isCancelEmergency = new AtomicBoolean(false);
     private AtomicInteger currentFloor = new AtomicInteger(0);
 
-    private Queue<Short> upWaitingLine;
-    private Queue<Short> downWaitingLine;
+    private List<Short> upWaitingLine;
+    private List<Short> downWaitingLine;
+
+    private List<Short> upLateWaitingLine;
+    private List<Short> downLateWaitingLine;
 
     private static volatile Object lock = new Object();
 
@@ -37,10 +40,11 @@ public class ElevatorControl implements FloorObserver, PanelObserver {
         this.commandEngine = commandEngine;
         this.waitingLineObservers = new ArrayList<>();
 
-        Comparator<Short> upComparator = Comparator.comparingInt(o -> o);
-        upWaitingLine = new PriorityQueue<>(upComparator);
-        Comparator<Short> downComparator = (o1, o2) -> o2 - o1;
-        downWaitingLine = new PriorityQueue<>(downComparator);
+        upWaitingLine = new LinkedList<>();
+        downWaitingLine = new LinkedList<>();
+
+        upLateWaitingLine = new LinkedList<>();
+        downLateWaitingLine = new LinkedList<>();
 
         Thread control = new Thread(new Control_Runnable());
         control.start();
@@ -54,8 +58,6 @@ public class ElevatorControl implements FloorObserver, PanelObserver {
 
         if(directionAfterReachingTargetFloor.equals(Direction.UP) && upWaitingLine.contains(targetFloor)) return;
         if(directionAfterReachingTargetFloor.equals(Direction.DOWN) && downWaitingLine.contains(targetFloor)) return;
-        //if(upWaitingLine.contains(targetFloor)) return;
-        //if(downWaitingLine.contains(targetFloor)) return;
 
         /* vérif quand on est dans la cabine */
         if(currentFloor.get() == FLOOR_MAX && targetFloor > currentFloor.get()) return; //si requete pour monter plus haut que max on fais rien
@@ -69,21 +71,60 @@ public class ElevatorControl implements FloorObserver, PanelObserver {
     }
 
     private void orderRequest(short targetFloor, Direction directionAfterReachingTargetFloor){
-        synchronized (lock) {
-            if(directionAfterReachingTargetFloor.equals(Direction.UP)){
-                upWaitingLine.add(targetFloor);
-            } else if(directionAfterReachingTargetFloor.equals(Direction.DOWN)){
-                downWaitingLine.add(targetFloor);
+        if(directionAfterReachingTargetFloor.equals(Direction.UP)){
+            if (currentFloor.get() < targetFloor) {
+                addToUpWaitingList(upWaitingLine, targetFloor);
             } else {
-                if (currentFloor.get() < targetFloor) {
-                    upWaitingLine.add(targetFloor);
-                } else {
-                    downWaitingLine.add(targetFloor);
+                addToUpWaitingList(upLateWaitingLine, targetFloor);
+            }
+        } else if(directionAfterReachingTargetFloor.equals(Direction.DOWN)){
+            if (currentFloor.get() < targetFloor) {
+                System.out.println("???");
+                addToDownWaitingList(downLateWaitingLine, targetFloor);
+            } else {
+                addToDownWaitingList(downWaitingLine, targetFloor);
+            }
+        } else {
+            if (currentFloor.get() < targetFloor) {
+                addToUpWaitingList(upWaitingLine, targetFloor);
+            } else {
+                addToDownWaitingList(downWaitingLine, targetFloor);
+            }
+        }
+
+        Platform.runLater(this::notifyWaitingLineChange);
+        synchronized (lock) {
+            lock.notifyAll();
+        }
+    }
+
+    private synchronized void addToUpWaitingList(List<Short> upWaitingLine, short targetFloor){
+        synchronized (lock) {
+            if(upWaitingLine.contains(targetFloor)) return;
+            boolean isAdded = false;
+            for (int i = 0; i < upWaitingLine.size(); ++i) {
+                if (targetFloor < upWaitingLine.get(i)) {
+                    upWaitingLine.add(i, targetFloor);
+                    isAdded = true;
+                    break;
                 }
             }
+            if (!isAdded) upWaitingLine.add(targetFloor);
+        }
+    }
 
-            Platform.runLater(this::notifyWaitingLineChange);
-            lock.notifyAll();
+    private synchronized void addToDownWaitingList(List<Short> downWaitingLine, short targetFloor){
+        synchronized (lock) {
+            if(downWaitingLine.contains(targetFloor)) return;
+            boolean isAdded = false;
+            for (int i = 0; i < downWaitingLine.size(); ++i) {
+                if (targetFloor > downWaitingLine.get(i)) {
+                    downWaitingLine.add(i, targetFloor);
+                    isAdded = true;
+                    break;
+                }
+            }
+            if (!isAdded) downWaitingLine.add(targetFloor);
         }
     }
 
@@ -113,15 +154,16 @@ public class ElevatorControl implements FloorObserver, PanelObserver {
     }
 
 
-    private Queue<Short> getActualWaitingLine(){
-        if(upWaitingLine.isEmpty() && downWaitingLine.isEmpty())
-            return new PriorityQueue<>();
-        else {
-            if(!upWaitingLine.isEmpty() && !downWaitingLine.isEmpty()) {
-                return commandEngine.getDirection().equals(Direction.UP) ? upWaitingLine : downWaitingLine;
+    private List<Short> getActualWaitingLine(){
+        synchronized (lock) {
+            if (upWaitingLine.isEmpty() && downWaitingLine.isEmpty())
+                return new LinkedList<>();
+            else {
+                if (!upWaitingLine.isEmpty() && !downWaitingLine.isEmpty()) {
+                    return commandEngine.getDirection().equals(Direction.UP) ? upWaitingLine : downWaitingLine;
+                } else if (upWaitingLine.isEmpty()) return downWaitingLine;
+                else return upWaitingLine;
             }
-            else if(upWaitingLine.isEmpty()) return downWaitingLine;
-            else return upWaitingLine;
         }
     }
 
@@ -175,14 +217,16 @@ public class ElevatorControl implements FloorObserver, PanelObserver {
                             lock.wait();
                         }
 
-                        Queue<Short> actualWaitingLine = getActualWaitingLine();
+                        List<Short> actualWaitingLine = getActualWaitingLine();
+                        short maxIndex = (short) (actualWaitingLine.size() - 1);
+
                         while(!actualWaitingLine.isEmpty()) {
                             if (isFloorChange.get()) {
                                 System.out.println("floor change");
                                 isFloorChange.set(false);
 
-                                if (actualWaitingLine.peek() != null && currentFloor.get() == actualWaitingLine.peek()) {
-                                    actualWaitingLine.poll();
+                                if (actualWaitingLine.get(0) != null && currentFloor.get() == actualWaitingLine.get(0)) {
+                                    actualWaitingLine.remove(0);
                                     commandEngine.stop();
                                     Platform.runLater(ElevatorControl.this::notifyWaitingLineChange);
                                     Thread.sleep(1000);
@@ -190,31 +234,50 @@ public class ElevatorControl implements FloorObserver, PanelObserver {
                                 }
                             }
 
-                            short targetFloor = actualWaitingLine.peek();
+                            short targetFloor = actualWaitingLine.get(0);
                             System.out.println("prochain: " + targetFloor);
                             try {
                                 if (targetFloor > currentFloor.get()) {
                                     commandEngine.goUp();
                                     while (!isFloorChange.get()) {
-                                        System.out.println("11111");
                                         lock.wait();
-                                        System.out.println("22222");
                                         if(isCancelEmergency.get()) break;
                                     }
                                 } else if (targetFloor < currentFloor.get()) {
                                     commandEngine.goDown();
                                     while (!isFloorChange.get()) {
-                                        System.out.println("33333");
                                         lock.wait();
-                                        System.out.println("44444");
                                         if(isCancelEmergency.get()) break;
                                     }
+                                } else {
+                                    //TODO gerer le cas
+                                    commandEngine.stop();
                                 }
                                 if(isCancelEmergency.get()) isCancelEmergency.set(false);
                             } catch (InterruptedException e) {
                                 e.printStackTrace();
                             }
                         }
+
+                        if(actualWaitingLine.equals(upWaitingLine)) {
+                            System.out.println("koko");
+                            upWaitingLine.addAll(upLateWaitingLine);
+                            upLateWaitingLine = new LinkedList<>();
+
+                            for(int i = 0; i < downLateWaitingLine.size(); ++i)
+                                addToDownWaitingList(downWaitingLine, downLateWaitingLine.get(i));
+
+                        }
+                        else if(actualWaitingLine.equals(downWaitingLine)) {
+                            System.out.println("okok");
+                            downWaitingLine.addAll(downLateWaitingLine);
+                            downLateWaitingLine = new LinkedList<>();
+
+                            for(int i = 0; i < upLateWaitingLine.size(); ++i)
+                                addToUpWaitingList(upWaitingLine, upLateWaitingLine.get(i));
+                        }
+
+                        Platform.runLater(ElevatorControl.this::notifyWaitingLineChange);
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
