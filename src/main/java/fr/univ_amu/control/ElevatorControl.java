@@ -46,11 +46,6 @@ public class ElevatorControl implements FloorObserver, PanelObserver {
     private void request(short targetFloor, Direction directionAfterReachingTargetFloor) {
         if(!commandEngine.getCanMove().get()) return;
 
-        /*
-        if(directionAfterReachingTargetFloor.equals(Direction.UP) && upWaitingLine.contains(targetFloor)) return;
-        if(directionAfterReachingTargetFloor.equals(Direction.DOWN) && downWaitingLine.contains(targetFloor)) return;
-        */
-
         /* vérif quand on est dans la cabine */
         if(currentFloor.get() == FLOOR_MAX && targetFloor > currentFloor.get()) return; //si requete pour monter plus haut que max on fais rien
         if(currentFloor.get() == FLOOR_MIN && targetFloor < currentFloor.get()) return; //si requete pour descendre plus bas que min on fais rien
@@ -142,7 +137,7 @@ public class ElevatorControl implements FloorObserver, PanelObserver {
 
                         while(!waitingLine.isEmpty()) {
                             if (isFloorChange.get()) {
-                                //System.out.println("floor change");
+                                System.out.println("floor change");
                                 isFloorChange.set(false);
 
                                 if (waitingLine.get(0) != null && currentFloor.get() == waitingLine.get(0)) {
@@ -155,7 +150,6 @@ public class ElevatorControl implements FloorObserver, PanelObserver {
                             }
 
                             short targetFloor = waitingLine.get(0);
-                            //System.out.println("prochain: " + targetFloor);
                             try {
                                 if (targetFloor > currentFloor.get()) {
                                     commandEngine.goUp();
@@ -170,11 +164,8 @@ public class ElevatorControl implements FloorObserver, PanelObserver {
                                         if(isCancelEmergency.get()) break;
                                     }
                                 } else {
-                                    System.out.println("okokokokokko");
                                     waitingLine.remove(0);
-                                    //commandEngine.stop();
                                     Platform.runLater(ElevatorControl.this::notifyWaitingLineChange);
-                                    //lock.wait();
                                 }
                                 if(isCancelEmergency.get()) isCancelEmergency.set(false);
                             } catch (InterruptedException e) {
