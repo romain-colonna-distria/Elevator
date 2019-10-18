@@ -5,7 +5,9 @@ import fr.univ_amu.utils.Direction;
 
 import java.util.List;
 
-//TOdo: fnir strategie
+/**
+ * Implémente la stratégie de desserte minimisant les déplacement de l'ascenseur.
+ */
 public class MinimumStrategy implements SatisfactionStrategy {
 
     @SuppressWarnings("Duplicates")
