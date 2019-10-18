@@ -415,7 +415,7 @@ public class MinimumStrategy implements SatisfactionStrategy {
                             for(int j = i; j < waitingLine.size(); ++j){
                                 if(waitingLine.get(j) == max){
                                     for(int k = j; k < waitingLine.size(); ++k) {
-                                        if(waitingLine.get(k) < targetFloor) {
+                                        if(waitingLine.get(k) > targetFloor) {
                                             waitingLine.add(k, targetFloor);
                                             isAdded = true;
                                             break;
@@ -431,11 +431,30 @@ public class MinimumStrategy implements SatisfactionStrategy {
                 }
                 else if (targetFloor > currentFloor) {
                     System.out.println(">");
+                    short max = Constant.FLOOR_MIN;
+                    for (int i = 0; i < waitingLine.size(); ++i)
+                        max = max > waitingLine.get(i) ? max : waitingLine.get(i);
+
+                    short min = Constant.FLOOR_MAX;
+                    for (int i = 0; i < waitingLine.size(); ++i)
+                        min = min < waitingLine.get(i) ? min : waitingLine.get(i);
+
+
                     boolean isAdded = false;
                     for (int i = 0; i < waitingLine.size(); ++i){
-                        if(waitingLine.get(i) < targetFloor ) {
-                            waitingLine.add(i, targetFloor);
-                            isAdded = true;
+                        if(waitingLine.get(i) == min) {
+                            for(int j = i; j < waitingLine.size(); ++j){
+                                if(waitingLine.get(j) == max){
+                                    for(int k = j; k < waitingLine.size(); ++k) {
+                                        if(waitingLine.get(k) > targetFloor) {
+                                            waitingLine.add(k, targetFloor);
+                                            isAdded = true;
+                                            break;
+                                        }
+                                    }
+                                    break;
+                                }
+                            }
                             break;
                         }
                     }
