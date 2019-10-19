@@ -60,7 +60,7 @@ public class InternalControlPanel extends AnchorPane {
             buttonList.add(floor);
         }
 
-        Button emergency = new Button("Emergency emergencyStop");
+        Button emergency = new Button("Emergency Stop");
         emergency.setLayoutX(32.0);
         emergency.setLayoutY(465.0);
         emergency.setPrefWidth(165.0);

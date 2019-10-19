@@ -8,6 +8,7 @@ import fr.univ_amu.ihm.InternalControlPanel;
 import fr.univ_amu.ihm.ElevatorShaft;
 
 import fr.univ_amu.observer.WaitingLineObserver;
+import fr.univ_amu.strategy.MinimumStrategy;
 import fr.univ_amu.utils.Constant;
 import javafx.fxml.FXML;
 import javafx.scene.control.Label;
@@ -40,6 +41,7 @@ public class GeneralPanelController implements WaitingLineObserver {
 
         engine.addFloorObserver(control);
         control.addWaitingLineObserver(this);
+        control.setStrategy(new MinimumStrategy());
 
         elevatorShaft.addChildren(elevator);
 
